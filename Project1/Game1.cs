@@ -30,7 +30,7 @@ namespace Project1
         Quit
     }
 
-    public class Game1 : Game//The Game (Simulation)
+    public class Game1 : Game//The Simulation
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
@@ -58,7 +58,9 @@ namespace Project1
 
         List<Plant> activePlants = new List<Plant>();//Plants 
         List<Rabbit> activeRabbits = new List<Rabbit>();//Rabbits
-        Texture2D grassTex, thornsTex, rabbitTex;//Plant and Rabbit Textures
+        List<Fox> activeFoxes = new List<Fox>();//Foxes
+        
+        Texture2D grassTex, thornsTex, rabbitTex, foxTexture;//Plant,Rabbit and Fox Textures
         Random rng = new Random();//randomness
         float plantSpawnTimer = 0f;
         float plantSpawnInterval = 2f; // every 2 seconds
@@ -244,8 +246,12 @@ namespace Project1
             thornsTex.SetData(new[] { Color.DarkRed });
 
             //Rabbit Texture
-            rabbitTex = new Texture2D(GraphicsDevice, 1, 1);
-            rabbitTex.SetData(new[] { Color.Brown });
+            rabbitTex = Content.Load<Texture2D>("rabbitrun");
+
+            //Fox Texture
+            foxTexture = Content.Load<Texture2D>("foxrun8");
+                
+
         }
 
         private void SpawnRabbits()
@@ -265,6 +271,22 @@ namespace Project1
 
             rabbitsSpawned = true;
         }
+        private void SpawnFoxes()
+        {
+            activeFoxes.Clear(); // Clear any existing foxes
+
+            for (int i = 0; i < foxCount; i++)
+            {
+                // Spawn foxes at random positions on the map
+                Vector2 spawnPosition = new Vector2(
+                    rng.Next(50, 750), // Keep away from edges
+                    rng.Next(50, 550)
+                );
+
+                activeFoxes.Add(new Fox(spawnPosition, foxTexture));
+            }
+        }
+
 
         protected override void Update(GameTime gameTime)
         {
@@ -291,6 +313,7 @@ namespace Project1
                 if (!rabbitsSpawned)
                 {
                     SpawnRabbits();
+                    SpawnFoxes(); //Also decided to spawn the foxes here
                 }
 
                 float time = (float)gameTime.TotalGameTime.TotalSeconds;
@@ -329,6 +352,11 @@ namespace Project1
                             activePlants.RemoveAt(i);
                         }
                     }
+                }
+
+                foreach (var fox in activeFoxes)//Foxes update
+                {
+                    fox.Update(gameTime, activeRabbits);
                 }
 
                 // Update all rabbits
@@ -394,10 +422,14 @@ namespace Project1
 
                 foreach (var rabbit in activeRabbits)//Rabbits
                     rabbit.Draw(_spriteBatch);
+                foreach (var fox in activeFoxes)//Foxes
+                    fox.Draw(_spriteBatch);
+                
 
                 // Draw UI information
                 _spriteBatch.DrawString(font, $"Plants: {activePlants.Count}", new Vector2(10, 10), Color.White);
                 _spriteBatch.DrawString(font, $"Rabbits: {activeRabbits.Count}", new Vector2(10, 30), Color.White);
+                _spriteBatch.DrawString(font, $"Foxes: {activeFoxes.Count}", new Vector2(10, 50), Color.White);
                 _spriteBatch.DrawString(font, "Press ESC to return to menu", new Vector2(10, 570), Color.White);
             }
             else if (currentGameState == GameState.Settings)//Settings

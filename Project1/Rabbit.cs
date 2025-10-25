@@ -14,7 +14,7 @@ namespace Project1
         Idle
     }
 
-    public class Rabbit
+    public class Rabbit // Rabbit Class
     {
         public Vector2 Position;
         public Vector2 TargetPosition;
@@ -24,6 +24,7 @@ namespace Project1
         public float EatingTimer;
         public float EatingDuration = 2f; // How long they spend eating
         public float Speed = 30f; // pixels per second
+        public bool Alive = true; //If the rabbit is alive 
         public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, 8, 8);
 
         private List<Vector2> currentPath;
@@ -40,21 +41,21 @@ namespace Project1
             currentPathIndex = 0;
         }
 
-        public void Update(GameTime gameTime, List<Plant> plants, int mapWidth, int mapHeight)
+        public void Update(GameTime gameTime, List<Plant> plants, int mapWidth, int mapHeight) //Update method for the rabbits
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             switch (State)
             {
-                case RabbitState.Seeking:
+                case RabbitState.Seeking: // Look for nearest plant
                     SeekNearestPlant(plants, mapWidth, mapHeight);
                     break;
 
-                case RabbitState.MovingToPlant:
+                case RabbitState.MovingToPlant:// Move along path to plant
                     MoveAlongPath(deltaTime);
                     break;
 
-                case RabbitState.Eating:
+                case RabbitState.Eating:// Eating the plant
                     EatingTimer += deltaTime;
                     if (EatingTimer >= EatingDuration)
                     {
@@ -168,25 +169,10 @@ namespace Project1
             return path;
         }
 
-        public void Draw(SpriteBatch spriteBatch)
+        public void Draw(SpriteBatch spriteBatch)//Draw method for the rabbits
         {
             Color drawColor = Color.White;
-
-            // Change color based on state for visual feedback
-            switch (State)
-            {
-                case RabbitState.Eating:
-                    drawColor = Color.Yellow;
-                    break;
-                case RabbitState.MovingToPlant:
-                    drawColor = Color.LightBlue;
-                    break;
-                case RabbitState.Seeking:
-                    drawColor = Color.White;
-                    break;
-            }
-
-            spriteBatch.Draw(Texture, Bounds, drawColor);
+            spriteBatch.Draw(Texture, Position, null, Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
         }
     }
 }
