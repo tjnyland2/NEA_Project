@@ -26,6 +26,9 @@ namespace Project1
         private Random rand;
         private Texture2D texture;
 
+        private float hungerTimer;
+        private const float STARVATION_TIME = 20f; // Fox dies after 20 seconds without food
+
         // How long fox eats for (seconds)
         private const float EatDuration = 3f;
 
@@ -42,6 +45,13 @@ namespace Project1
         public void Update(GameTime gameTime, List<Rabbit> rabbits)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            hungerTimer += dt;
+            if (hungerTimer >= STARVATION_TIME) // Fox starves to death
+            {
+                Alive = false;
+                return;
+            }
+
 
             if (!Alive)
                 return;
@@ -89,8 +99,8 @@ namespace Project1
                     eatTimer += dt;
                     if (eatTimer >= EatDuration)
                     {
-                        // Done eating, look for next target
-                        State = FoxState.Seeking;
+                        hungerTimer = 0f; // Reset hunger after eating
+                        State = FoxState.Seeking; //Goes back to sneeking after eating 
                     }
                     break;
 

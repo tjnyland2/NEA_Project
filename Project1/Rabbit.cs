@@ -30,6 +30,7 @@ namespace Project1
         private List<Vector2> currentPath;
         private int currentPathIndex;
         private const int GRID_SIZE = 5; // map
+        private const float FOX_DETECTION_RANGE = 100f; // Range to detect foxes
 
         public Rabbit(Vector2 startPosition, Texture2D texture)
         {
@@ -41,9 +42,17 @@ namespace Project1
             currentPathIndex = 0;
         }
 
-        public void Update(GameTime gameTime, List<Plant> plants, int mapWidth, int mapHeight) //Update method for the rabbits
+        public void Update(GameTime gameTime, List<Plant> plants, List<Fox> foxes, int mapWidth, int mapHeight) //Update method for the rabbits
         {
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds; // Time (change) since last update
+
+            Fox nearestFox = FindNearestFox(foxes);
+            if (nearestFox != null && Vector2.Distance(Position, nearestFox.Position) < FOX_DETECTION_RANGE)
+            {
+                // Run away from fox
+                FleeFromFox(nearestFox, deltaTime);
+                return; // Skip other behaviors when fleeing
+            }
 
             switch (State)
             {
@@ -70,9 +79,9 @@ namespace Project1
                     }
                     break;
 
-                case RabbitState.Idle:
+                case RabbitState.Idle:// If idle 
                  
-                    State = RabbitState.Seeking;
+                    State = RabbitState.Seeking; //Go back to seeking
                     break;
             }
         }
@@ -142,6 +151,34 @@ namespace Project1
                 // Move towards current waypoint
                 direction.Normalize();
                 Position += direction * Speed * deltaTime;
+            }
+        }
+        private Fox FindNearestFox(List<Fox> foxes)
+        {
+            Fox nearest = null;
+            float nearestDist = float.MaxValue;
+
+            foreach (var fox in foxes)
+            {
+                if (!fox.Alive) continue;
+
+                float dist = Vector2.Distance(Position, fox.Position);
+                if (dist < nearestDist)
+                {
+                    nearest = fox;
+                    nearestDist = dist;
+                }
+            }
+            return nearest;
+        }
+        private void FleeFromFox(Fox fox, float deltaTime)// Running awway from fox
+        {
+            // Run in opposite direction from fox
+            Vector2 fleeDirection = Position - fox.Position;
+            if (fleeDirection.Length() > 0)
+            {
+                fleeDirection.Normalize();
+                Position += fleeDirection * Speed * 1.5f * deltaTime; // 1.5x speed when fleeing as they are running
             }
         }
 

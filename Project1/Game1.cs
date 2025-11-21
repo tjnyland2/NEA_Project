@@ -11,11 +11,12 @@ namespace Project1
     //Menus DONE ==> Settings, Terrain, Main Menu and quit
     //PLANTs work
 
-    
+
     /// To do:
-    /// Textures
-    /// Foxes
-    /// Mutations (Allowed only mutated rabbits to have certain plants)
+
+    /// Fix Foxes not reaching and eating rabbits
+    /// Create a border (Foxes and Rabbits going off screen)
+    ///Mutations (Allowed only mutated rabbits to have certain plants)
     /// Biomes (make it work) + Terrain Roughness
     /// Tutorial menu
 
@@ -238,9 +239,9 @@ namespace Project1
                 OnClick = () => currentGameState = GameState.MainMenu
             });
 
-            //Plant Textures
+            //Plant Textures (Temp)
             grassTex = new Texture2D(GraphicsDevice, 1, 1);
-            grassTex.SetData(new[] { Color.Green });
+            grassTex.SetData(new[] { Color.DarkRed });
 
             thornsTex = new Texture2D(GraphicsDevice, 1, 1);
             thornsTex.SetData(new[] { Color.DarkRed });
@@ -362,7 +363,13 @@ namespace Project1
                 // Update all rabbits
                 foreach (var rabbit in activeRabbits)
                 {
-                    rabbit.Update(gameTime, activePlants, 80, 60); // Pass map dimensions
+                    rabbit.Update(gameTime, activePlants, activeFoxes, 80, 60); // map size, activeFoxes and ActivePLants passed through
+                }
+                activeRabbits.RemoveAll(r => !r.Alive); //removes the rabbits that are not alive
+
+                if (activeRabbits.Count == 0 || activeFoxes.Count == 0)// If one of the species is dead
+                {
+                    currentGameState = GameState.GameOver; //Game over
                 }
 
                 // Exit to menu with Escape key
