@@ -45,7 +45,7 @@ namespace Project1
         int rabbitCount = 10;
         int foxCount = 5;
         int mutationChance = 10; // percent
-        int terrainRoughness = 5; // Value range: e.g., 1–10
+        int terrainRoughness = 5; // terrain roughness level
         int selectedBiome = 1;
 
         List<Button> menuButtons = new List<Button>(); //Buttons (menu)
@@ -62,11 +62,12 @@ namespace Project1
         List<Fox> activeFoxes = new List<Fox>();//Foxes
         
         Texture2D grassTex, thornsTex, rabbitTex, foxTexture;//Plant,Rabbit and Fox Textures
+        Texture2D pixelTexture; // used to draw borders and hitbox outlines
         Random rng = new Random();//randomness
         float plantSpawnTimer = 0f;
         float plantSpawnInterval = 2f; // every 2 seconds
 
-        bool rabbitsSpawned = false; // Flag to ensure rabbits are only spawned once
+        bool rabbitsSpawned = false; // make sure rabbits only spawn once
 
         public Game1()
         {
@@ -251,20 +252,23 @@ namespace Project1
 
             //Fox Texture
             foxTexture = Content.Load<Texture2D>("foxrun8");
-                
 
+            // Pixel used to draw borders and outlines (just for testing)
+            pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
+            pixelTexture.SetData(new[] { Color.White });
         }
 
-        private void SpawnRabbits()
+        private void SpawnRabbits(int mapPixelWidth, int mapPixelHeight)
         {
             activeRabbits.Clear(); // Clear any existing rabbits
 
+            int margin = 10;
             for (int i = 0; i < rabbitCount; i++)
             {
-                // Spawn rabbits at random positions on the map
-                Vector2 spawnPosition = new Vector2(
-                    rng.Next(50, 750), // Keep away from edges
-                    rng.Next(50, 550)
+                // Spawn rabbits at random positions on the map (respect map pixel bounds)
+                Vector2 spawnPosition = new Vector2( 
+                    rng.Next(margin, Math.Max(margin+1, mapPixelWidth - margin)), //this is the random x potison
+                    rng.Next(margin, Math.Max(margin+1, mapPixelHeight - margin))// the random y potison
                 );
 
                 activeRabbits.Add(new Rabbit(spawnPosition, rabbitTex));
@@ -272,16 +276,17 @@ namespace Project1
 
             rabbitsSpawned = true;
         }
-        private void SpawnFoxes()
+        private void SpawnFoxes(int mapPixelWidth, int mapPixelHeight)
         {
             activeFoxes.Clear(); // Clear any existing foxes
 
+            int margin = 10;
             for (int i = 0; i < foxCount; i++)
             {
                 // Spawn foxes at random positions on the map
                 Vector2 spawnPosition = new Vector2(
-                    rng.Next(50, 750), // Keep away from edges
-                    rng.Next(50, 550)
+                    rng.Next(margin, Math.Max(margin+1, mapPixelWidth - margin)), // x position
+                    rng.Next(margin, Math.Max(margin+1, mapPixelHeight - margin)) // y position
                 );
 
                 activeFoxes.Add(new Fox(spawnPosition, foxTexture));
@@ -313,8 +318,8 @@ namespace Project1
                 // Spawn rabbits once when entering play mode
                 if (!rabbitsSpawned)
                 {
-                    SpawnRabbits();
-                    SpawnFoxes(); //Also decided to spawn the foxes here
+                    SpawnRabbits(mapGenerator.PixelWidth, mapGenerator.PixelHeight);
+                    SpawnFoxes(mapGenerator.PixelWidth, mapGenerator.PixelHeight); //Also decided to spawn the foxes here
                 }
 
                 float time = (float)gameTime.TotalGameTime.TotalSeconds;
@@ -325,7 +330,7 @@ namespace Project1
                 {
                     plantSpawnTimer = 0f;
 
-                    Vector2 position = new Vector2(rng.Next(50, 750), rng.Next(50, 550));
+                    Vector2 position = new Vector2(rng.Next(10, Math.Max(11, mapGenerator.PixelWidth - 10)), rng.Next(10, Math.Max(11, mapGenerator.PixelHeight - 10)));
                     string type = rng.NextDouble() < 0.5 ? "Grass" : "Thorns";
                     Texture2D tex = type == "Grass" ? grassTex : thornsTex;
 
@@ -357,15 +362,51 @@ namespace Project1
 
                 foreach (var fox in activeFoxes)//Foxes update
                 {
-                    fox.Update(gameTime, activeRabbits);
+                    fox.Update(gameTime, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                 }
 
                 // Update all rabbits
+                // Update all rabbits (pass full rabbit list so each rabbit can avoid others)
                 foreach (var rabbit in activeRabbits)
                 {
-                    rabbit.Update(gameTime, activePlants, activeFoxes, 80, 60); // map size, activeFoxes and ActivePLants passed through
+                    rabbit.Update(gameTime, activePlants, activeFoxes, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                 }
                 activeRabbits.RemoveAll(r => !r.Alive); //removes the rabbits that are not alive
+
+                // Breeding: if two rabbits have eaten recently and meet, create a new rabbit
+                float breedDistance = 20f;
+                var newBabies = new List<Rabbit>();
+                for (int i = 0; i < activeRabbits.Count; i++)
+                {
+                    var r1 = activeRabbits[i];
+                    if (!r1.Alive) continue;
+                    for (int j = i + 1; j < activeRabbits.Count; j++)
+                    {
+                        var r2 = activeRabbits[j];
+                        if (!r2.Alive) continue;
+
+                        if (r1.CanBreed() && r2.CanBreed())
+                        {
+                            if (Vector2.Distance(r1.Position, r2.Position) <= breedDistance)
+                            {
+                                // spawn baby at midpoint, clamp to map
+                                Vector2 spawnPos = (r1.Position + r2.Position) / 2f;
+                                spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapGenerator.PixelWidth - 8));
+                                spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapGenerator.PixelHeight - 8));
+
+                                newBabies.Add(new Rabbit(spawnPos, rabbitTex));
+                                r1.MarkBred();
+                                r2.MarkBred();
+
+                                // prevent same rabbits breeding again this tick
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (newBabies.Count > 0)
+                    activeRabbits.AddRange(newBabies);
 
                 if (activeRabbits.Count == 0 || activeFoxes.Count == 0)// If one of the species is dead
                 {
@@ -409,6 +450,20 @@ namespace Project1
             base.Update(gameTime);
         }
 
+        private void DrawRectangleOutline(SpriteBatch sb, Rectangle rect, int thickness, Color color)
+        {
+            //JUST FOR TESTING, SO I COULD SEE THE MAP BOUNDARIES AND HITBOXES
+
+            // top
+            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
+            // bottom
+            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y + rect.Height - thickness, rect.Width, thickness), color);
+            // left
+            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
+            // right
+            // sb.Draw(pixelTexture, new Rectangle(rect.X + rect.Width - thickness, rect.Y, thickness, rect.Height), color);
+        }
+
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);// Black background :)
@@ -432,6 +487,24 @@ namespace Project1
                 foreach (var fox in activeFoxes)//Foxes
                     fox.Draw(_spriteBatch);
                 
+                // Draw map border (based on map pixel size)
+                if (mapGenerator != null)
+                {
+                    int borderThickness = 3;
+                    var mapRect = new Rectangle(0, 0, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
+                    DrawRectangleOutline(_spriteBatch, mapRect, borderThickness, Color.White);
+                }
+
+                // Draw hitbox outlines for debugging/visibility
+                foreach (var plant in activePlants)
+                {
+                    DrawRectangleOutline(_spriteBatch, plant.Bounds, 1, Color.Lime * 0.8f);
+                }
+                foreach (var rabbit in activeRabbits)
+                {
+                    DrawRectangleOutline(_spriteBatch, rabbit.Bounds, 1, Color.Yellow * 0.8f);
+                }
+               
 
                 // Draw UI information
                 _spriteBatch.DrawString(font, $"Plants: {activePlants.Count}", new Vector2(10, 10), Color.White);

@@ -24,6 +24,14 @@ namespace Project1
         private Texture2D grassTexture, waterTexture, plantTexture, grassTexture2;
         private GraphicsDevice graphicsDevice;
 
+        // Tile size in pixels (exposed so callers can compute pixel dimensions)
+        public int TileSize { get; private set; } = 10;
+
+        public int MapTilesWidth => width;
+        public int MapTilesHeight => height;
+        public int PixelWidth => width * TileSize;
+        public int PixelHeight => height * TileSize;
+
         public MapGenerator(int width, int height, GraphicsDevice graphicsDevice)
         {
             this.width = width;
@@ -64,7 +72,7 @@ namespace Project1
 
         public void Draw(SpriteBatch spriteBatch)
         {
-            int tileSize = 10;//was 10
+            int tileSize = TileSize; // use exposed tile size
 
             for (int x = 0; x < width; x++)
             {

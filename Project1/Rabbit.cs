@@ -25,7 +25,21 @@ namespace Project1
         public float EatingDuration = 2f; // How long they spend eating
         public float Speed = 30f; // pixels per second
         public bool Alive = true; //If the rabbit is alive 
-        public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, 8, 8);
+
+        private const float DrawScale = 0.7f; // scale used when drawing the rabbit
+
+        // Width/Height derived from texture size and draw scale so hitbox matches visual sprite
+        public int Width => (int)(Texture?.Width * DrawScale ?? 8);//was 8
+        public int Height => (int)(Texture?.Height * DrawScale ?? 8);//was 8
+        public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
+
+        // Breeding/eating tracking
+        public bool HasEaten { get; private set; } = false;
+        private float timeSinceAte = float.MaxValue;
+        //CHANGED VALUES
+        private const float BREED_WINDOW = 8f;      // seconds after eating when rabbit can breed
+        private const float BREED_COOLDOWN = 10f;   // seconds cooldown after successful breeding
+        public float BreedingCooldown { get; private set; } = 0f;
 
         private List<Vector2> currentPath;
         private int currentPathIndex;
@@ -40,28 +54,52 @@ namespace Project1
             EatingTimer = 0f;
             currentPath = new List<Vector2>();
             currentPathIndex = 0;
+            HasEaten = false;
+            timeSinceAte = float.MaxValue;
+            BreedingCooldown = 0f;
         }
 
-        public void Update(GameTime gameTime, List<Plant> plants, List<Fox> foxes, int mapWidth, int mapHeight) //Update method for the rabbits
+        // mapPixelWidth/mapPixelHeight are in pixels (not tiles)
+        // updated signature: receives list of rabbits so it can avoid same-species collisions
+        public void Update(GameTime gameTime, List<Plant> plants, List<Fox> foxes, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds; // Time (change) since last update
+
+            // Update timers related to breeding/eating
+            if (HasEaten)
+            {
+                timeSinceAte += deltaTime;
+                if (timeSinceAte > BREED_WINDOW)
+                {
+                    HasEaten = false;
+                }
+            }
+
+            if (BreedingCooldown > 0f)
+            {
+                BreedingCooldown -= deltaTime;
+                if (BreedingCooldown < 0f) BreedingCooldown = 0f;
+            }
 
             Fox nearestFox = FindNearestFox(foxes);
             if (nearestFox != null && Vector2.Distance(Position, nearestFox.Position) < FOX_DETECTION_RANGE)
             {
-                // Run away from fox
-                FleeFromFox(nearestFox, deltaTime);
+                // Run away from fox (avoid other rabbits while fleeing)
+                FleeFromFox(nearestFox, deltaTime, rabbits, foxes, mapPixelWidth, mapPixelHeight);
+                // ensure inside bounds and skip other behaviours when fleeing
+                Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
+                Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
                 return; // Skip other behaviors when fleeing
             }
 
             switch (State)
             {
                 case RabbitState.Seeking: // Look for nearest plant
-                    SeekNearestPlant(plants, mapWidth, mapHeight);
+                    SeekNearestPlant(plants, mapPixelWidth, mapPixelHeight);
                     break;
 
                 case RabbitState.MovingToPlant:// Move along path to plant
-                    MoveAlongPath(deltaTime);
+                    MoveAlongPath(deltaTime, rabbits, foxes, mapPixelWidth, mapPixelHeight);
                     break;
 
                 case RabbitState.Eating:// Eating the plant
@@ -74,6 +112,11 @@ namespace Project1
                             plants.Remove(TargetPlant);
                             TargetPlant = null;
                         }
+
+                        // Mark as having eaten for the breeding window
+                        HasEaten = true;
+                        timeSinceAte = 0f;
+
                         State = RabbitState.Seeking;
                         EatingTimer = 0f;
                     }
@@ -84,9 +127,13 @@ namespace Project1
                     State = RabbitState.Seeking; //Go back to seeking
                     break;
             }
+
+            // Clamp inside map borders so rabbits don't go off-screen (uses sprite size)
+            Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
+            Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
         }
 
-        private void SeekNearestPlant(List<Plant> plants, int mapWidth, int mapHeight)
+        private void SeekNearestPlant(List<Plant> plants, int mapPixelWidth, int mapPixelHeight)
         {
             if (plants.Count == 0) return;
 
@@ -117,7 +164,42 @@ namespace Project1
             }
         }
 
-        private void MoveAlongPath(float deltaTime)
+        // Attempt to move to proposed position, avoiding collisions with other rabbits and foxes
+        private void TryMove(Vector2 proposedPosition, List<Rabbit> rabbits, List<Fox> foxes, int mapPixelWidth, int mapPixelHeight)
+        {
+            // Clamp proposed inside map first
+            float clampedX = MathHelper.Clamp(proposedPosition.X, 0f, Math.Max(0, mapPixelWidth - Width));
+            float clampedY = MathHelper.Clamp(proposedPosition.Y, 0f, Math.Max(0, mapPixelHeight - Height));
+            var newBounds = new Rectangle((int)clampedX, (int)clampedY, Width, Height);
+
+            // Check collision with other rabbits
+            foreach (var other in rabbits)
+            {
+                if (other == null || other == this || !other.Alive) continue;
+                if (newBounds.Intersects(other.Bounds))
+                {
+                    // collision with another rabbit -> cancel movement
+                    return;
+                }
+            }
+
+            // Check collision with foxes
+            foreach (var f in foxes)
+            {
+                if (f == null || !f.Alive) continue;
+                if (newBounds.Intersects(f.Bounds))
+                {
+                    // collision with fox -> cancel movement
+                    return;
+                }
+            }
+
+            // no collision, apply
+            Position.X = clampedX;
+            Position.Y = clampedY;
+        }
+
+        private void MoveAlongPath(float deltaTime, List<Rabbit> rabbits, List<Fox> foxes, int mapPixelWidth, int mapPixelHeight)
         {
             if (currentPath.Count == 0 || currentPathIndex >= currentPath.Count)
             {
@@ -148,9 +230,10 @@ namespace Project1
             }
             else
             {
-                // Move towards current waypoint
+                // Move towards current waypoint but avoid moving into other rabbits or foxes
                 direction.Normalize();
-                Position += direction * Speed * deltaTime;
+                Vector2 proposed = Position + direction * Speed * deltaTime;
+                TryMove(proposed, rabbits, foxes, mapPixelWidth, mapPixelHeight);
             }
         }
         private Fox FindNearestFox(List<Fox> foxes)
@@ -171,14 +254,15 @@ namespace Project1
             }
             return nearest;
         }
-        private void FleeFromFox(Fox fox, float deltaTime)// Running awway from fox
+        private void FleeFromFox(Fox fox, float deltaTime, List<Rabbit> rabbits, List<Fox> foxes, int mapPixelWidth, int mapPixelHeight)// Running awway from fox
         {
-            // Run in opposite direction from fox
+            // Run in opposite direction from fox but avoid stepping into other rabbits or fox hitboxes
             Vector2 fleeDirection = Position - fox.Position;
             if (fleeDirection.Length() > 0)
             {
                 fleeDirection.Normalize();
-                Position += fleeDirection * Speed * 1.5f * deltaTime; // 1.5x speed when fleeing as they are running
+                Vector2 proposed = Position + fleeDirection * Speed * 1.5f * deltaTime; // 1.5x speed when fleeing as they are running
+                TryMove(proposed, rabbits, foxes, mapPixelWidth, mapPixelHeight);
             }
         }
 
@@ -206,10 +290,23 @@ namespace Project1
             return path;
         }
 
+        // Called by Game1 when two rabbits successfully breed
+        public void MarkBred()
+        {
+            HasEaten = false;
+            timeSinceAte = float.MaxValue;
+            BreedingCooldown = BREED_COOLDOWN;
+        }
+
+        public bool CanBreed()
+        {
+            return HasEaten && BreedingCooldown <= 0f && Alive;
+        }
+
         public void Draw(SpriteBatch spriteBatch)//Draw method for the rabbits
         {
             Color drawColor = Color.White;
-            spriteBatch.Draw(Texture, Position, null, Color.White, 0f, Vector2.Zero, 0.7f, SpriteEffects.None, 0f);
+            spriteBatch.Draw(Texture, Position, null, Color.White, 0f, Vector2.Zero, DrawScale, SpriteEffects.None, 0f);
         }
     }
 }

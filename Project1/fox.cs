@@ -32,6 +32,13 @@ namespace Project1
         // How long fox eats for (seconds)
         private const float EatDuration = 3f;
 
+        private const float DrawScale = 2f; // same scale used when drawing the fox
+
+        // Width and Height of the hitbox is derived from fox texture size :) 
+        public int Width => (int)(texture?.Width * DrawScale ?? 16);
+        public int Height => (int)(texture?.Height * DrawScale ?? 16);
+        public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
+
         public Fox(Vector2 startPos, Texture2D tex)
         {
             Position = startPos;
@@ -42,7 +49,8 @@ namespace Project1
             rand = new Random();
         }
 
-        public void Update(GameTime gameTime, List<Rabbit> rabbits)
+        // Accept map pixel dimensions to enforce borders
+        public void Update(GameTime gameTime, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             hungerTimer += dt;
@@ -51,7 +59,6 @@ namespace Project1
                 Alive = false;
                 return;
             }
-
 
             if (!Alive)
                 return;
@@ -85,11 +92,11 @@ namespace Project1
 
                     Position += direction * Speed * dt;
 
-                    // Check if close enough to catch
-                    if (distance < 10f)
+                    // Use hitbox intersection for reliable catch, then reset hunger immediately
+                    if (targetRabbit != null && Bounds.Intersects(targetRabbit.Bounds))
                     {
-                        // Eat the rabbit
                         targetRabbit.Alive = false;
+                        hungerTimer = 0f;      // reset hunger immediately on successful catch
                         State = FoxState.Eating;
                         eatTimer = 0f;
                     }
@@ -99,8 +106,8 @@ namespace Project1
                     eatTimer += dt;
                     if (eatTimer >= EatDuration)
                     {
-                        hungerTimer = 0f; // Reset hunger after eating
-                        State = FoxState.Seeking; //Goes back to sneeking after eating 
+                        hungerTimer = 0f; // Reset hunger after eating (redundant but safe)
+                        State = FoxState.Seeking;
                     }
                     break;
 
@@ -114,6 +121,10 @@ namespace Project1
                     }
                     break;
             }
+
+            // Clamp inside map borders so fox can't go off-screen (uses sprite size)
+            Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
+            Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
         }
 
         private Rabbit FindNearestRabbit(List<Rabbit> rabbits)
@@ -142,8 +153,7 @@ namespace Project1
             if (!Alive)
                 return;
 
-            Color tint = Color.OrangeRed;
-            spriteBatch.Draw(texture, Position, null, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
+            spriteBatch.Draw(texture, Position, null, Color.White, 0f, Vector2.Zero, DrawScale, SpriteEffects.None, 0f);
         }
     }
 }
