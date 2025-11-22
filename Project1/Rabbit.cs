@@ -46,6 +46,10 @@ namespace Project1
         private const int GRID_SIZE = 5; // map
         private const float FOX_DETECTION_RANGE = 100f; // Range to detect foxes
 
+        // Starvation (similar approach to Fox)
+        private float hungerTimer = 0f;
+        private const float STARVATION_TIME = 10f; // seconds until rabbit dies without food (adjustable)
+
         public Rabbit(Vector2 startPosition, Texture2D texture)
         {
             Position = startPosition; //spawn
@@ -57,6 +61,7 @@ namespace Project1
             HasEaten = false;
             timeSinceAte = float.MaxValue;
             BreedingCooldown = 0f;
+            hungerTimer = 0f;
         }
 
         // mapPixelWidth/mapPixelHeight are in pixels (not tiles)
@@ -64,6 +69,18 @@ namespace Project1
         public void Update(GameTime gameTime, List<Plant> plants, List<Fox> foxes, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds; // Time (change) since last update
+
+            // If already dead, skip
+            if (!Alive)
+                return;
+
+            // Hunger updates: starve if exceed starvation time (same approach as Fox)
+            hungerTimer += deltaTime;
+            if (hungerTimer >= STARVATION_TIME)
+            {
+                Alive = false;
+                return;
+            }
 
             // Update timers related to breeding/eating
             if (HasEaten)
@@ -116,6 +133,9 @@ namespace Project1
                         // Mark as having eaten for the breeding window
                         HasEaten = true;
                         timeSinceAte = 0f;
+
+                        // Reset hunger on successful eating
+                        hungerTimer = 0f;
 
                         State = RabbitState.Seeking;
                         EatingTimer = 0f;
@@ -308,6 +328,7 @@ namespace Project1
 
         public void Draw(SpriteBatch spriteBatch)//Draw method for the rabbits
         {
+            if (!Alive) return;
             Color drawColor = Color.White;
             spriteBatch.Draw(Texture, Position, null, Color.White, 0f, Vector2.Zero, DrawScale, SpriteEffects.None, 0f);
         }

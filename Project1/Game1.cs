@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -67,6 +68,12 @@ namespace Project1
         float plantSpawnInterval = 2f; // every 2 seconds
 
         bool rabbitsSpawned = false; // make sure rabbits only spawn once
+
+        // Population history for GameOver graph
+        List<int> rabbitHistory = new List<int>();
+        List<int> foxHistory = new List<int>();
+        float historySampleTimer = 0f;
+        float historySampleInterval = 1f; // sample population every 1 second
 
         public Game1()
         {
@@ -168,7 +175,7 @@ namespace Project1
                 Font = font,
                 OnClick = () => { if (mutationChance < 100) mutationChance++; }
             };
-
+            
 
             settingsButtons.Add(new Button//Reset Values (settings)
             {
@@ -319,6 +326,10 @@ namespace Project1
                 {
                     SpawnRabbits(mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                     SpawnFoxes(mapGenerator.PixelWidth, mapGenerator.PixelHeight); //Also decided to spawn the foxes here
+                    // clear any old history when starting a new simulation
+                    rabbitHistory.Clear();
+                    foxHistory.Clear();
+                    historySampleTimer = 0f;
                 }
 
                 float time = (float)gameTime.TotalGameTime.TotalSeconds;
@@ -407,6 +418,15 @@ namespace Project1
                 if (newBabies.Count > 0)
                     activeRabbits.AddRange(newBabies);
 
+                // Sample population history at fixed interval
+                historySampleTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (historySampleTimer >= historySampleInterval)
+                {
+                    historySampleTimer -= historySampleInterval;
+                    rabbitHistory.Add(activeRabbits.Count);
+                    foxHistory.Add(activeFoxes.Count);
+                }
+
                 if (activeRabbits.Count == 0 || activeFoxes.Count == 0)// If one of the species is dead
                 {
                     currentGameState = GameState.GameOver; //Game over
@@ -445,6 +465,23 @@ namespace Project1
                     button.Update(currentMouse, previousMouse);
             }
 
+            if (currentGameState == GameState.GameOver)
+            {
+                // Allow returning to main menu and clear simulation state/history
+                if (Keyboard.GetState().IsKeyDown(Keys.Escape))
+                {
+                    currentGameState = GameState.MainMenu;
+                    activePlants.Clear();
+                    activeRabbits.Clear();
+                    activeFoxes.Clear();
+                    mapGenerator = null;
+                    rabbitsSpawned = false;
+                    rabbitHistory.Clear();
+                    foxHistory.Clear();
+                    historySampleTimer = 0f;
+                }
+            }
+
             previousMouse = currentMouse;
             base.Update(gameTime);
         }
@@ -461,6 +498,86 @@ namespace Project1
             // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
             // right
             // sb.Draw(pixelTexture, new Rectangle(rect.X + rect.Width - thickness, rect.Y, thickness, rect.Height), color);
+        }
+
+        private void DrawPopulationGraph(SpriteBatch sb, Rectangle area)
+        {
+            // background
+            sb.Draw(pixelTexture, area, Color.Black * 0.8f);
+
+            int padding = 10;
+            var plotRect = new Rectangle(area.X + padding, area.Y + padding, area.Width - padding * 2, area.Height - padding * 2);
+
+            // axes
+            // y axis
+            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y, 2, plotRect.Height), Color.White);
+            // x axis
+            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y + plotRect.Height - 2, plotRect.Width, 2), Color.White);
+
+            int points = Math.Max(rabbitHistory.Count, foxHistory.Count);
+            if (points < 2)
+            {
+                sb.DrawString(font, "Not enough data to plot.", new Vector2(area.X + 20, area.Y + 20), Color.White);
+                return;
+            }
+
+            int maxY = 1;
+            if (rabbitHistory.Count > 0) maxY = Math.Max(maxY, rabbitHistory.Max());
+            if (foxHistory.Count > 0) maxY = Math.Max(maxY, foxHistory.Max());
+
+            // draw y ticks and labels (3 ticks)
+            for (int t = 0; t <= 3; t++)
+            {
+                float frac = t / 3f;
+                int y = plotRect.Y + (int)((1 - frac) * plotRect.Height);
+                sb.Draw(pixelTexture, new Rectangle(plotRect.X - 5, y, plotRect.Width + 5, 1), Color.Gray * 0.6f);
+                int label = (int)Math.Round(frac * maxY);
+                sb.DrawString(font, label.ToString(), new Vector2(plotRect.X - 40, y - 8), Color.White);
+            }
+
+            // Helper to map sample index/value to screen coords
+            float xStep = (float)plotRect.Width / (points - 1);
+            float yScale = (float)plotRect.Height / Math.Max(1, maxY);
+
+            // draw rabbit polyline (yellow)
+            Color rabbitColor = Color.Yellow;
+            for (int i = 1; i < rabbitHistory.Count; i++)
+            {
+                float x1 = plotRect.X + (i - 1) * xStep;
+                float x2 = plotRect.X + i * xStep;
+                float y1 = plotRect.Y + plotRect.Height - rabbitHistory[i - 1] * yScale;
+                float y2 = plotRect.Y + plotRect.Height - rabbitHistory[i] * yScale;
+                DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), rabbitColor, 2);
+            }
+
+            // draw fox polyline (red)
+            Color foxColor = Color.Red;
+            for (int i = 1; i < foxHistory.Count; i++)
+            {
+                float x1 = plotRect.X + (i - 1) * xStep;
+                float x2 = plotRect.X + i * xStep;
+                float y1 = plotRect.Y + plotRect.Height - foxHistory[i - 1] * yScale;
+                float y2 = plotRect.Y + plotRect.Height - foxHistory[i] * yScale;
+                DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), foxColor, 2);
+            }
+
+            // legend
+            int legendX = plotRect.X + 10;
+            int legendY = plotRect.Y + 10;
+            sb.Draw(pixelTexture, new Rectangle(legendX, legendY, 10, 10), rabbitColor);
+            sb.DrawString(font, $" Rabbits (final: {rabbitHistory.LastOrDefault()})", new Vector2(legendX + 14, legendY - 3), Color.White);
+            legendY += 18;
+            sb.Draw(pixelTexture, new Rectangle(legendX, legendY, 10, 10), foxColor);
+            sb.DrawString(font, $" Foxes (final: {foxHistory.LastOrDefault()})", new Vector2(legendX + 14, legendY - 3), Color.White);
+        }
+
+        private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, int thickness = 1)
+        {
+            // draw line using pixelTexture
+            Vector2 edge = end - start;
+            float angle = (float)Math.Atan2(edge.Y, edge.X);
+            float length = edge.Length();
+            sb.Draw(pixelTexture, start, null, color, angle, Vector2.Zero, new Vector2(length, thickness), SpriteEffects.None, 0f);
         }
 
         protected override void Draw(GameTime gameTime)
@@ -553,6 +670,19 @@ namespace Project1
                 // Draw buttons
                 foreach (var button in terrainButtons)
                     button.Draw(_spriteBatch);
+            }
+            else if (currentGameState == GameState.GameOver)
+            {
+                _spriteBatch.DrawString(font, "Game Over", new Vector2(330, 20), Color.White);
+
+                // Graph area
+                var graphArea = new Rectangle(100, 60, 600, 400);
+                DrawPopulationGraph(_spriteBatch, graphArea);
+
+                // summary text (was 720x changed to 600x)
+                _spriteBatch.DrawString(font, $"Final Rabbits: {rabbitHistory.LastOrDefault()}", new Vector2(600, 80), Color.Yellow);
+                _spriteBatch.DrawString(font, $"Final Foxes: {foxHistory.LastOrDefault()}", new Vector2(600, 110), Color.Red);
+                _spriteBatch.DrawString(font, "Press ESC to return to main menu", new Vector2(330, -110), Color.White);
             }
 
             _spriteBatch.End();

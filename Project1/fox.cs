@@ -27,7 +27,7 @@ namespace Project1
         private Texture2D texture;
 
         private float hungerTimer;
-        private const float STARVATION_TIME = 20f; // Fox dies after 20 seconds without food
+        private const float STARVATION_TIME = 5f; // Fox dies without food (Changed to 5 from 20)
 
         // How long fox eats for (seconds)
         private const float EatDuration = 3f;
