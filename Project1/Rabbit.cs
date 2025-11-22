@@ -28,7 +28,7 @@ namespace Project1
 
         private const float DrawScale = 0.7f; // scale used when drawing the rabbit
 
-        // Width/Height derived from texture size and draw scale so hitbox matches visual sprite
+        // Hitbox height and width size based on texture size and draw scale
         public int Width => (int)(Texture?.Width * DrawScale ?? 8);//was 8
         public int Height => (int)(Texture?.Height * DrawScale ?? 8);//was 8
         public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
@@ -89,7 +89,7 @@ namespace Project1
                 // ensure inside bounds and skip other behaviours when fleeing
                 Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
                 Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
-                return; // Skip other behaviors when fleeing
+                return; // Skip other behaviors when fleeing (as thats the survival priority)
             }
 
             switch (State)
@@ -129,6 +129,7 @@ namespace Project1
             }
 
             // Clamp inside map borders so rabbits don't go off-screen (uses sprite size)
+            //Clamp ensures a value stays between min and max values set (figured this one out from reading an acticle from codecademy)
             Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
             Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
         }
@@ -172,16 +173,18 @@ namespace Project1
             float clampedY = MathHelper.Clamp(proposedPosition.Y, 0f, Math.Max(0, mapPixelHeight - Height));
             var newBounds = new Rectangle((int)clampedX, (int)clampedY, Width, Height);
 
+            //REMOVED Collsion (For now) with other rabbits, as had issues with them getting stuck
+
             // Check collision with other rabbits
-            foreach (var other in rabbits)
-            {
-                if (other == null || other == this || !other.Alive) continue;
-                if (newBounds.Intersects(other.Bounds))
-                {
-                    // collision with another rabbit -> cancel movement
-                    return;
-                }
-            }
+            //foreach (var other in rabbits)
+            //{
+            //  if (other == null || other == this || !other.Alive) continue;
+            //if (newBounds.Intersects(other.Bounds))
+            //{
+            // collision with another rabbit -> cancel movement
+            //  return;
+            //}
+            //}
 
             // Check collision with foxes
             foreach (var f in foxes)

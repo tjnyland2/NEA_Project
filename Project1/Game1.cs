@@ -8,17 +8,16 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace Project1
 {
-    //Menus DONE ==> Settings, Terrain, Main Menu and quit
-    //PLANTs work
-
+    
+    //Version 22/11/25 (1)
 
     /// To do:
 
-    /// Fix Foxes not reaching and eating rabbits
-    /// Create a border (Foxes and Rabbits going off screen)
     ///Mutations (Allowed only mutated rabbits to have certain plants)
     /// Biomes (make it work) + Terrain Roughness
     /// Tutorial menu
+    /// Game Over screen + Graph (of populations over time)
+    /// Better graphics (animation of sprites) + plant textures
 
     public enum GameState // The states of the game (did this off my FSM I made in my analysis)
     {
