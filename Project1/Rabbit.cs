@@ -48,7 +48,7 @@ namespace Project1
 
         // Starvation (similar approach to Fox)
         private float hungerTimer = 0f;
-        private const float STARVATION_TIME = 10f; // seconds until rabbit dies without food (adjustable)
+        private const float STARVATION_TIME = 20f; // seconds until rabbit dies without food
 
         public Rabbit(Vector2 startPosition, Texture2D texture)
         {

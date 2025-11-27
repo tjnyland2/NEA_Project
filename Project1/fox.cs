@@ -27,7 +27,7 @@ namespace Project1
         private Texture2D texture;
 
         private float hungerTimer;
-        private const float STARVATION_TIME = 5f; // Fox dies without food (Changed to 5 from 20)
+        private const float STARVATION_TIME = 20f; // Fox dies without food (Changed to 5 from 20)
 
         // How long fox eats for (seconds)
         private const float EatDuration = 3f;
@@ -39,6 +39,13 @@ namespace Project1
         public int Height => (int)(texture?.Height * DrawScale ?? 16);
         public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
 
+        // Breeding/eating tracking (similar to Rabbit)
+        public bool HasEaten { get; private set; } = false;
+        private float timeSinceAte = float.MaxValue;
+        private const float BREED_WINDOW = 8f;      // seconds after eating when fox can breed
+        private const float BREED_COOLDOWN = 12f;   // seconds cooldown after successful breeding
+        public float BreedingCooldown { get; private set; } = 0f;
+
         public Fox(Vector2 startPos, Texture2D tex)
         {
             Position = startPos;
@@ -47,6 +54,10 @@ namespace Project1
             State = FoxState.Seeking;
             Speed = 40f;
             rand = new Random();
+            // breeding timers initialised
+            HasEaten = false;
+            timeSinceAte = float.MaxValue;
+            BreedingCooldown = 0f;
         }
 
         // Accept map pixel dimensions to enforce borders
@@ -62,6 +73,22 @@ namespace Project1
 
             if (!Alive)
                 return;
+
+            // Update breeding/eating timers
+            if (HasEaten)
+            {
+                timeSinceAte += dt;
+                if (timeSinceAte > BREED_WINDOW)
+                {
+                    HasEaten = false;
+                }
+            }
+
+            if (BreedingCooldown > 0f)
+            {
+                BreedingCooldown -= dt;
+                if (BreedingCooldown < 0f) BreedingCooldown = 0f;
+            }
 
             switch (State)
             {
@@ -99,6 +126,10 @@ namespace Project1
                         hungerTimer = 0f;      // reset hunger immediately on successful catch
                         State = FoxState.Eating;
                         eatTimer = 0f;
+
+                        // Mark that fox has eaten for breeding window
+                        HasEaten = true;
+                        timeSinceAte = 0f;
                     }
                     break;
 
@@ -146,6 +177,19 @@ namespace Project1
             }
 
             return nearest;
+        }
+
+        // Called by Game1 when two foxes successfully breed
+        public void MarkBred()
+        {
+            HasEaten = false;
+            timeSinceAte = float.MaxValue;
+            BreedingCooldown = BREED_COOLDOWN;
+        }
+
+        public bool CanBreed()
+        {
+            return HasEaten && BreedingCooldown <= 0f && Alive;
         }
 
         public void Draw(SpriteBatch spriteBatch)

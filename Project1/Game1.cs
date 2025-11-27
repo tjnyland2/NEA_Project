@@ -580,9 +580,25 @@ namespace Project1
             sb.Draw(pixelTexture, start, null, color, angle, Vector2.Zero, new Vector2(length, thickness), SpriteEffects.None, 0f);
         }
 
+        private Color GetBiomeBackgroundColor(int biomeId)
+        {
+            switch (biomeId)
+            {
+                case 1: return new Color(110, 170, 100); // lush green tint
+                case 2: return new Color(150, 190, 150); // pale moss tint
+                case 3: return new Color(235, 210, 170); // sandy tint
+                default: return Color.Black;
+            }
+        }
+
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.Black);// Black background :)
+            // Clear to biome background when playing; otherwise keep black
+            Color clearColor = Color.Black;
+            if (currentGameState == GameState.Playing)
+                clearColor = GetBiomeBackgroundColor(selectedBiome);
+
+            GraphicsDevice.Clear(clearColor);
             _spriteBatch.Begin();
 
             if (currentGameState == GameState.MainMenu)//Main menu
