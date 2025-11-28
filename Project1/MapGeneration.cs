@@ -87,11 +87,11 @@ namespace Project1
                         plant: new Color(170, 200, 170),
                         water: new Color(35, 75, 120));
                     break;
-                case 3: // Arid / desert-like
+                case 3: // desert
                     CreateTextures(
                         grass: new Color(210, 180, 140), // sand
                         plant: new Color(200, 160, 80),  // dry plants 
-                        water: new Color(40, 70, 110));
+                        water: new Color(210, 180, 140));//made this same as sand as no water in desert
                     break;
                 default: // fallback
                     CreateTextures(Color.ForestGreen, Color.DarkGreen, Color.DarkBlue);
