@@ -20,10 +20,11 @@ namespace Project1
         public Vector2 TargetPosition;
         public RabbitState State;
         public Texture2D Texture;
-        public Plant TargetPlant;
+        // TargetPlant is now controlled through methods that update Plant.AssignedRabbits safely
+        public Plant TargetPlant { get; private set; }
         public float EatingTimer;
         public float EatingDuration = 2f; // How long they spend eating
-        public float Speed = 30f; // pixels per second
+        public float Speed = 70f; // pixels per second
         public bool Alive = true; //If the rabbit is alive 
 
         private const float DrawScale = 0.7f; // scale used when drawing the rabbit
@@ -46,9 +47,12 @@ namespace Project1
         private const int GRID_SIZE = 5; // map
         private const float FOX_DETECTION_RANGE = 100f; // Range to detect foxes
 
-        // Starvation (similar approach to Fox)
+        // Starvation
         private float hungerTimer = 0f;
         private const float STARVATION_TIME = 20f; // seconds until rabbit dies without food
+
+        // Shared RNG for natural variation
+        private static readonly Random rng = new Random();
 
         public Rabbit(Vector2 startPosition, Texture2D texture)
         {
@@ -62,23 +66,28 @@ namespace Project1
             timeSinceAte = float.MaxValue;
             BreedingCooldown = 0f;
             hungerTimer = 0f;
+            TargetPlant = null;
         }
 
         // mapPixelWidth/mapPixelHeight are in pixels (not tiles)
-        // updated signature: receives list of rabbits so it can avoid same-species collisions
         public void Update(GameTime gameTime, List<Plant> plants, List<Fox> foxes, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds; // Time (change) since last update
 
             // If already dead, skip
             if (!Alive)
+            {
+                //clear the rabbits target if they are dead
+                ClearTarget();
                 return;
+            }
 
-            // Hunger updates: starve if exceed starvation time (same approach as Fox)
+            // rabbit starves to death :(
             hungerTimer += deltaTime;
             if (hungerTimer >= STARVATION_TIME)
             {
                 Alive = false;
+                ClearTarget();
                 return;
             }
 
@@ -103,7 +112,7 @@ namespace Project1
             {
                 // Run away from fox (avoid other rabbits while fleeing)
                 FleeFromFox(nearestFox, deltaTime, rabbits, foxes, mapPixelWidth, mapPixelHeight);
-                // ensure inside bounds and skip other behaviours when fleeing
+                // Keep inside of the map
                 Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
                 Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
                 return; // Skip other behaviors when fleeing (as thats the survival priority)
@@ -126,6 +135,8 @@ namespace Project1
                         // Finished eating, remove the plant and go back to seeking
                         if (TargetPlant != null)
                         {
+                            // Release assigned slot before removing the plant
+                            TargetPlant.ReleaseAssigned();
                             plants.Remove(TargetPlant);
                             TargetPlant = null;
                         }
@@ -143,27 +154,38 @@ namespace Project1
                     break;
 
                 case RabbitState.Idle:// If idle 
-                 
-                    State = RabbitState.Seeking; //Go back to seeking
-                    break;
+                  // wander around a bit while idle so rabbits don't stand perfectly still
+                  //done this as had some issues with movements looking really un natural 
+                  Vector2 randDir = new Vector2((float)(rng.NextDouble() - 0.5), (float)(rng.NextDouble() - 0.5));
+                  if (randDir.LengthSquared() > 0.0001f) randDir.Normalize();
+                  Vector2 proposed = Position + randDir * Speed * 0.35f * deltaTime;
+                  TryMove(proposed, rabbits, foxes, mapPixelWidth, mapPixelHeight);
+                  State = RabbitState.Seeking; // periodically resume seeking
+                  break;
             }
 
             // Clamp inside map borders so rabbits don't go off-screen (uses sprite size)
-            //Clamp ensures a value stays between min and max values set (figured this one out from reading an acticle from codecademy)
             Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
             Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
         }
 
         private void SeekNearestPlant(List<Plant> plants, int mapPixelWidth, int mapPixelHeight)
         {
-            if (plants.Count == 0) return;
+            if (plants.Count == 0)
+            {
+                State = RabbitState.Idle;
+                return;
+            }
 
-            // Find the nearest plant:
+            // Find the nearest plant that still has assignment capacity
             Plant nearestPlant = null;
             float nearestDistance = float.MaxValue;
 
-            foreach (var plant in plants) 
+            foreach (var plant in plants)
             {
+                if (plant == null) continue;
+                if (plant.AssignedRabbits >= Plant.MaxAssigned) continue; // skip full plants
+
                 float distance = Vector2.Distance(Position, plant.Position);
                 if (distance < nearestDistance)
                 {
@@ -174,18 +196,37 @@ namespace Project1
 
             if (nearestPlant != null)
             {
-                TargetPlant = nearestPlant;
-                // Calculate path
-                currentPath = FindPathDirect(Position, nearestPlant.Position);
-                if (currentPath.Count > 0)
+                // Try to reserve the plant before committing to it
+                if (nearestPlant.TryAssign())
                 {
-                    currentPathIndex = 0;
-                    State = RabbitState.MovingToPlant;
+                    // release any previous target (shouldn't normally have one here)
+                    if (TargetPlant != null)
+                        TargetPlant.ReleaseAssigned();
+
+                    TargetPlant = nearestPlant;
+                    // Calculate path
+                    currentPath = FindPathDirect(Position, nearestPlant.Position);
+                    if (currentPath.Count > 0)
+                    {
+                        currentPathIndex = 0;
+                        State = RabbitState.MovingToPlant;
+                    }
                 }
+                else
+                {
+                    // remains looking for plant, if the rabbit hasn't found a plant
+                    TargetPlant = null;
+                    State = RabbitState.Seeking;
+                }
+            }
+            else
+            {
+                // no available plant -> idle wander
+                State = RabbitState.Idle;
             }
         }
 
-        // Attempt to move to proposed position, avoiding collisions with other rabbits and foxes
+        // Tries to move to a potision (avoiding collsions with foxes) ( removed rabbit collsions for now)
         private void TryMove(Vector2 proposedPosition, List<Rabbit> rabbits, List<Fox> foxes, int mapPixelWidth, int mapPixelHeight)
         {
             // Clamp proposed inside map first
@@ -194,17 +235,6 @@ namespace Project1
             var newBounds = new Rectangle((int)clampedX, (int)clampedY, Width, Height);
 
             //REMOVED Collsion (For now) with other rabbits, as had issues with them getting stuck
-
-            // Check collision with other rabbits
-            //foreach (var other in rabbits)
-            //{
-            //  if (other == null || other == this || !other.Alive) continue;
-            //if (newBounds.Intersects(other.Bounds))
-            //{
-            // collision with another rabbit -> cancel movement
-            //  return;
-            //}
-            //}
 
             // Check collision with foxes
             foreach (var f in foxes)
@@ -247,7 +277,16 @@ namespace Project1
                     }
                     else
                     {
-                        State = RabbitState.Seeking;
+                        // If target plant is gone or out of reach, release target and seek again
+                        if (TargetPlant != null && Vector2.Distance(Position, TargetPlant.Position) >= 15f)
+                        {
+                            // keep target until confirmed lost
+                        }
+                        else
+                        {
+                            ClearTarget();
+                            State = RabbitState.Seeking;
+                        }
                     }
                 }
             }
@@ -255,7 +294,17 @@ namespace Project1
             {
                 // Move towards current waypoint but avoid moving into other rabbits or foxes
                 direction.Normalize();
-                Vector2 proposed = Position + direction * Speed * deltaTime;
+
+                // Adds a jitter to make things seem more natural
+                float jitter = (float)(rng.NextDouble() * 0.5 - 0.25); // -0.25 .. +0.25
+                Vector2 perp = new Vector2(-direction.Y, direction.X);
+                direction += perp * jitter;
+                if (direction.LengthSquared() > 0.0001f) direction.Normalize();
+
+                // little changes in speed (makes things seem more natural)
+                float speedFactor = 0.9f + (float)rng.NextDouble() * 0.2f; // 0.9 .. 1.1
+
+                Vector2 proposed = Position + direction * Speed * speedFactor * deltaTime;
                 TryMove(proposed, rabbits, foxes, mapPixelWidth, mapPixelHeight);
             }
         }
@@ -284,6 +333,13 @@ namespace Project1
             if (fleeDirection.Length() > 0)
             {
                 fleeDirection.Normalize();
+
+                // making sure fleeing has little jitters (make it seems more natural so not in straight line)
+                float perpJitter = (float)(rng.NextDouble() * 0.6 - 0.3);
+                Vector2 perp = new Vector2(-fleeDirection.Y, fleeDirection.X);
+                fleeDirection += perp * perpJitter;
+                if (fleeDirection.LengthSquared() > 0.0001f) fleeDirection.Normalize();
+
                 Vector2 proposed = Position + fleeDirection * Speed * 1.5f * deltaTime; // 1.5x speed when fleeing as they are running
                 TryMove(proposed, rabbits, foxes, mapPixelWidth, mapPixelHeight);
             }
@@ -311,6 +367,16 @@ namespace Project1
 
             path.Add(end); // Always add the final destination
             return path;
+        }
+
+        // release current target assignment (called when plant removed, rabbit dies, or rabbit abandons target)
+        public void ClearTarget()
+        {
+            if (TargetPlant != null)
+            {
+                TargetPlant.ReleaseAssigned();
+                TargetPlant = null;
+            }
         }
 
         // Called by Game1 when two rabbits successfully breed

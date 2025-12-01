@@ -15,10 +15,10 @@ namespace Project1
     /// To do:
 
     ///Mutations (Allowed only mutated rabbits to have certain plants)
-    /// Biomes (make it work) + Terrain Roughness
+   ///Terrain roughness
     /// Tutorial menu
-    /// Game Over screen + Graph (of populations over time)
-    /// Better graphics (animation of sprites) + plant textures
+    ///Textures for plants
+    
 
     public enum GameState // The states of the game (did this off my FSM I made in my analysis)
     {
@@ -43,8 +43,8 @@ namespace Project1
         private MapGenerator mapGenerator;
 
         //Default Values for my simulation
-        int rabbitCount = 100;
-        int foxCount = 10;
+        int rabbitCount = 20;
+        int foxCount = 2;
         int mutationChance = 10; // percent
         int terrainRoughness = 5; // terrain roughness level
         int selectedBiome = 1;
@@ -77,6 +77,7 @@ namespace Project1
         // Population history for GameOver graph
         List<int> rabbitHistory = new List<int>();
         List<int> foxHistory = new List<int>();
+        List<int> plantHistory = new List<int>(); 
         float historySampleTimer = 0f;
         float historySampleInterval = 1f; // sample population every 1 second
 
@@ -187,7 +188,7 @@ namespace Project1
                 Font = font,
                 OnClick = () => { if (mutationChance < 100) mutationChance++; }
             };
-            
+
 
             settingsButtons.Add(new Button//Reset Values (settings)
             {
@@ -197,8 +198,8 @@ namespace Project1
                 BackgroundColor = Color.Red,
                 OnClick = () =>
                 {
-                    rabbitCount = 100;
-                    foxCount = 10;
+                    rabbitCount = 25;
+                    foxCount = 2;
                     mutationChance = 10;
                 }
             });
@@ -282,14 +283,15 @@ namespace Project1
             {
                 Bounds = new Rectangle(300, 280, 200, 50),
                 Text = "End Simulation",
-                Font = font,
                 BackgroundColor = Color.Red,
+                Font = font,
                 OnClick = () =>
                 {
-                    // store final time and a last population sample, then go to GameOver
+                    // store final time and a last population sample, then go to GameOver (for our graph)
                     lastSimulationDuration = simulationTimer;
                     rabbitHistory.Add(activeRabbits.Count);
                     foxHistory.Add(activeFoxes.Count);
+                    plantHistory.Add(activePlants.Count); 
                     currentGameState = GameState.GameOver;
                 }
             };
@@ -298,7 +300,7 @@ namespace Project1
 
             //Plant Textures (Temp)
             grassTex = new Texture2D(GraphicsDevice, 1, 1);
-            grassTex.SetData(new[] { Color.DarkRed });
+            grassTex.SetData(new[] { Color.Yellow });
 
             thornsTex = new Texture2D(GraphicsDevice, 1, 1);
             thornsTex.SetData(new[] { Color.DarkRed });
@@ -310,8 +312,8 @@ namespace Project1
             foxTexture = Content.Load<Texture2D>("foxrun8");
 
             // Pixel used to draw borders and outlines (just for testing)
-           // pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
-            //pixelTexture.SetData(new[] { Color.White });
+            pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
+            pixelTexture.SetData(new[] { Color.White });
         }
 
         private void SpawnRabbits(int mapPixelWidth, int mapPixelHeight)
@@ -319,7 +321,7 @@ namespace Project1
             activeRabbits.Clear(); // Clear any existing rabbits
 
             int margin = 10;
-            // match Rabbit draw scale used in Rabbit.cs (0.7)
+            // match Rabbit draw scale
             int rabbitWidth = (int)(rabbitTex?.Width * 0.7f ?? 8);
             int rabbitHeight = (int)(rabbitTex?.Height * 0.7f ?? 8);
 
@@ -407,6 +409,7 @@ namespace Project1
                     // clear any old history when starting a new simulation
                     rabbitHistory.Clear();
                     foxHistory.Clear();
+                    plantHistory.Clear(); 
                     historySampleTimer = 0f;
 
                     // reset simulation timer
@@ -457,6 +460,13 @@ namespace Project1
 
                         if (!beingEaten)
                         {
+                            // If any rabbits were targeting this plant, clear their target (and release assigned slot)
+                            foreach (var rabbit in activeRabbits)
+                            {
+                                if (rabbit.TargetPlant == activePlants[i])
+                                    rabbit.ClearTarget();
+                            }
+
                             activePlants.RemoveAt(i);
                         }
                     }
@@ -473,6 +483,13 @@ namespace Project1
                 {
                     rabbit.Update(gameTime, activePlants, activeFoxes, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                 }
+
+                // Release targets for any rabbits that died during update before removing them
+                foreach (var dead in activeRabbits.Where(r => !r.Alive).ToList())
+                {
+                    dead.ClearTarget();
+                }
+
                 activeRabbits.RemoveAll(r => !r.Alive); //removes the dead rabbits 
 
                 // Breeding of rabbits 
@@ -541,23 +558,30 @@ namespace Project1
                         }
                     }
                 }
-                /////////////////////////////////////////////////////////
+                
                 if (newFoxes.Count > 0)
                     activeFoxes.AddRange(newFoxes);
 
-                // Sample population history at fixed interval
+                // Sample population history at fixed interval (For the graph) 
                 historySampleTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
                 if (historySampleTimer >= historySampleInterval)
                 {
                     historySampleTimer -= historySampleInterval;
                     rabbitHistory.Add(activeRabbits.Count);
                     foxHistory.Add(activeFoxes.Count);
+                    plantHistory.Add(activePlants.Count); 
                 }
-                /////////////////////////////////////////////////////////
+                
                 if (activeRabbits.Count == 0 || activeFoxes.Count == 0)// If one of the species is dead
                 {
                     // store final simulation time for GameOver screen
                     lastSimulationDuration = simulationTimer;
+
+                    // add a final sample for the graph
+                    rabbitHistory.Add(activeRabbits.Count);
+                    foxHistory.Add(activeFoxes.Count);
+                    plantHistory.Add(activePlants.Count); 
+
                     currentGameState = GameState.GameOver; //Game over
                 }
 
@@ -570,6 +594,9 @@ namespace Project1
                     activeRabbits.Clear();
                     mapGenerator = null;
                     rabbitsSpawned = false;
+                    rabbitHistory.Clear();
+                    foxHistory.Clear();
+                    plantHistory.Clear(); 
                 }
             }
             if (currentGameState == GameState.Settings)//Settings
@@ -627,6 +654,7 @@ namespace Project1
                     rabbitsSpawned = false;
                     rabbitHistory.Clear();
                     foxHistory.Clear();
+                    plantHistory.Clear(); 
                     historySampleTimer = 0f;
                     simulationTimer = 0f;
                 }
@@ -645,6 +673,7 @@ namespace Project1
                     rabbitsSpawned = false;
                     rabbitHistory.Clear();
                     foxHistory.Clear();
+                    plantHistory.Clear(); 
                     historySampleTimer = 0f;
                     simulationTimer = 0f;
                     lastSimulationDuration = 0f;
@@ -655,7 +684,20 @@ namespace Project1
             previousKeyboard = currentKeyboard;
             base.Update(gameTime);
         }
-
+        // ADDED: helper to draw outlined text for readability, and improved DrawPopulationGraph
+        private void DrawTextOutlined(SpriteBatch sb, string text, Vector2 position, Color fill, Color outline, float scale = 1f, int outlinePixels = 2)
+        {
+            // draw outline by drawing the text offset around the main position
+            for (int ox = -outlinePixels; ox <= outlinePixels; ox++)
+            {
+                for (int oy = -outlinePixels; oy <= outlinePixels; oy++)
+                {
+                    if (ox == 0 && oy == 0) continue;
+                    sb.DrawString(font, text, new Vector2(position.X + ox, position.Y + oy), outline, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                }
+            }
+            sb.DrawString(font, text, position, fill, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
         private void DrawRectangleOutline(SpriteBatch sb, Rectangle rect, int thickness, Color color)
         {
             //JUST FOR TESTING, SO I COULD SEE THE MAP BOUNDARIES AND HITBOXES
@@ -673,43 +715,45 @@ namespace Project1
         private void DrawPopulationGraph(SpriteBatch sb, Rectangle area)
         {
             // background
-            sb.Draw(pixelTexture, area, Color.Black * 0.8f);
+            sb.Draw(pixelTexture, area, Color.Black * 0.9f);
 
-            int padding = 10;
+            int padding = 18;
             var plotRect = new Rectangle(area.X + padding, area.Y + padding, area.Width - padding * 2, area.Height - padding * 2);
 
-            // axes
-            // y axis
-            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y, 2, plotRect.Height), Color.White);
-            // x axis
-            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y + plotRect.Height - 2, plotRect.Width, 2), Color.White);
+            // thicker axes
+            int axisThickness = 3;
+            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y, axisThickness, plotRect.Height), Color.LightGray); // y axis
+            sb.Draw(pixelTexture, new Rectangle(plotRect.X, plotRect.Y + plotRect.Height - axisThickness, plotRect.Width, axisThickness), Color.LightGray); // x axis
 
-            int points = Math.Max(rabbitHistory.Count, foxHistory.Count);
+            int points = Math.Max(Math.Max(rabbitHistory.Count, foxHistory.Count), plantHistory.Count);
             if (points < 2)
             {
-                sb.DrawString(font, "Not enough data to plot.", new Vector2(area.X + 20, area.Y + 20), Color.White);
+                DrawTextOutlined(sb, "Not enough data to plot.", new Vector2(area.X + 20, area.Y + 20), Color.White, Color.Black, 1f, 2);
                 return;
             }
 
             int maxY = 1;
             if (rabbitHistory.Count > 0) maxY = Math.Max(maxY, rabbitHistory.Max());
             if (foxHistory.Count > 0) maxY = Math.Max(maxY, foxHistory.Max());
+            if (plantHistory.Count > 0) maxY = Math.Max(maxY, plantHistory.Max());
 
-            // draw y ticks and labels (3 ticks)
-            for (int t = 0; t <= 3; t++)
+            // draw horizontal grid lines and labels (4 ticks)
+            int ticks = 4;
+            float labelScale = 0.9f;
+            for (int t = 0; t <= ticks; t++)
             {
-                float frac = t / 3f;
+                float frac = t / (float)ticks;
                 int y = plotRect.Y + (int)((1 - frac) * plotRect.Height);
-                sb.Draw(pixelTexture, new Rectangle(plotRect.X - 5, y, plotRect.Width + 5, 1), Color.Gray * 0.6f);
+                sb.Draw(pixelTexture, new Rectangle(plotRect.X, y, plotRect.Width, 1), Color.Gray * 0.35f);
                 int label = (int)Math.Round(frac * maxY);
-                sb.DrawString(font, label.ToString(), new Vector2(plotRect.X - 40, y - 8), Color.White);
+                DrawTextOutlined(sb, label.ToString(), new Vector2(plotRect.X - 42, y - 10), Color.White, Color.Black, labelScale, 2);
             }
 
             // Helper to map sample index/value to screen coords
             float xStep = (float)plotRect.Width / (points - 1);
             float yScale = (float)plotRect.Height / Math.Max(1, maxY);
 
-            // draw rabbit polyline (yellow)
+            // draw polylines with thicker strokes
             Color rabbitColor = Color.Yellow;
             for (int i = 1; i < rabbitHistory.Count; i++)
             {
@@ -717,10 +761,9 @@ namespace Project1
                 float x2 = plotRect.X + i * xStep;
                 float y1 = plotRect.Y + plotRect.Height - rabbitHistory[i - 1] * yScale;
                 float y2 = plotRect.Y + plotRect.Height - rabbitHistory[i] * yScale;
-                DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), rabbitColor, 2);
+                DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), rabbitColor, 3);
             }
 
-            // draw fox polyline (red)
             Color foxColor = Color.Red;
             for (int i = 1; i < foxHistory.Count; i++)
             {
@@ -731,16 +774,41 @@ namespace Project1
                 DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), foxColor, 2);
             }
 
-            // legend
-            int legendX = plotRect.X + 10;
-            int legendY = plotRect.Y + 10;
-            sb.Draw(pixelTexture, new Rectangle(legendX, legendY, 10, 10), rabbitColor);
-            sb.DrawString(font, $" Rabbits (final: {rabbitHistory.LastOrDefault()})", new Vector2(legendX + 14, legendY - 3), Color.White);
-            legendY += 18;
-            sb.Draw(pixelTexture, new Rectangle(legendX, legendY, 10, 10), foxColor);
-            sb.DrawString(font, $" Foxes (final: {foxHistory.LastOrDefault()})", new Vector2(legendX + 14, legendY - 3), Color.White);
-        }
+            Color plantColor = Color.Lime;
+            for (int i = 1; i < plantHistory.Count; i++)
+            {
+                float x1 = plotRect.X + (i - 1) * xStep;
+                float x2 = plotRect.X + i * xStep;
+                float y1 = plotRect.Y + plotRect.Height - plantHistory[i - 1] * yScale;
+                float y2 = plotRect.Y + plotRect.Height - plantHistory[i] * yScale;
+                DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), plantColor, 3);
+            }
 
+            // legend box
+            int legendW = 260;
+            int legendH = 80;
+            int legendX = plotRect.X + 8;
+            int legendY = plotRect.Y + 8;
+            sb.Draw(pixelTexture, new Rectangle(legendX - 6, legendY - 6, legendW + 12, legendH + 12), Color.Black * 0.6f);
+            sb.Draw(pixelTexture, new Rectangle(legendX - 6, legendY - 6, legendW + 12, 2), Color.Gray * 0.5f);
+
+            // legend entries with small colored squares
+            int entryX = legendX;
+            int entryY = legendY;
+            int sw = 10;
+            sb.Draw(pixelTexture, new Rectangle(entryX, entryY, sw, sw), rabbitColor);
+            DrawTextOutlined(sb, $" Rabbits (final: {rabbitHistory.LastOrDefault()})", new Vector2(entryX + sw + 8, entryY - 2), Color.White, Color.Black, 0.95f, 2);
+            entryY += 20;
+            sb.Draw(pixelTexture, new Rectangle(entryX, entryY, sw, sw), foxColor);
+            DrawTextOutlined(sb, $" Foxes (final: {foxHistory.LastOrDefault()})", new Vector2(entryX + sw + 8, entryY - 2), Color.White, Color.Black, 0.95f, 2);
+            entryY += 20;
+            sb.Draw(pixelTexture, new Rectangle(entryX, entryY, sw, sw), plantColor);
+            DrawTextOutlined(sb, $" Plants (final: {plantHistory.LastOrDefault()})", new Vector2(entryX + sw + 8, entryY - 2), Color.White, Color.Black, 0.95f, 2);
+
+            // small axis labels
+            DrawTextOutlined(sb, "Time ->", new Vector2(plotRect.X + plotRect.Width - 48, plotRect.Y + plotRect.Height + 6), Color.White, Color.Black, 0.85f, 2);
+            DrawTextOutlined(sb, "Population", new Vector2(plotRect.X - 58, plotRect.Y - 28), Color.White, Color.Black, 0.85f, 2);
+        }
         private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, int thickness = 1)
         {
             // draw line using pixelTexture
@@ -859,7 +927,7 @@ namespace Project1
                 foreach (var button in terrainButtons)
                     button.Draw(_spriteBatch);
             }
-            else if (currentGameState == GameState.Paused) // NEW: paused UI
+            else if (currentGameState == GameState.Paused) // If paused
             {
                 // dim background
                 _spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * 0.6f);
@@ -886,7 +954,8 @@ namespace Project1
                 // summary text (was 720x changed to 600x)
                 _spriteBatch.DrawString(font, $"Final Rabbits: {rabbitHistory.LastOrDefault()}", new Vector2(550, 10), Color.Yellow);
                 _spriteBatch.DrawString(font, $"Final Foxes: {foxHistory.LastOrDefault()}", new Vector2(550, 50), Color.Red);
-                _spriteBatch.DrawString(font, $"Simulation Time: {FormatTime(lastSimulationDuration)}", new Vector2(550, 90), Color.White);
+                _spriteBatch.DrawString(font, $"Final Plants: {plantHistory.LastOrDefault()}", new Vector2(550, 90), Color.Lime); 
+                _spriteBatch.DrawString(font, $"Simulation Time: {FormatTime(lastSimulationDuration)}", new Vector2(550, 130), Color.White);
                 _spriteBatch.DrawString(font, "Press ESC to return to main menu", new Vector2(10, 30), Color.White);
             }
 

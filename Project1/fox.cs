@@ -23,11 +23,12 @@ namespace Project1
 
         private Rabbit targetRabbit;
         private float eatTimer;
-        private Random rand;
+        // Randomness of movement
+        private static readonly Random rng = new Random();
         private Texture2D texture;
 
         private float hungerTimer;
-        private const float STARVATION_TIME = 20f; // Fox dies without food (Changed to 5 from 20)
+        private const float STARVATION_TIME = 20f; // Fox dies without food (starves)
 
         // How long fox eats for (seconds)
         private const float EatDuration = 3f;
@@ -52,8 +53,7 @@ namespace Project1
             texture = tex;
             Alive = true;
             State = FoxState.Seeking;
-            Speed = 40f;
-            rand = new Random();
+            Speed = 60f;
             // breeding timers initialised
             HasEaten = false;
             timeSinceAte = float.MaxValue;
@@ -99,7 +99,13 @@ namespace Project1
                     if (targetRabbit != null)
                         State = FoxState.Chasing;
                     else
-                        State = FoxState.Idle;
+                    {
+                        // small random wander when no target found
+                        Vector2 wander = new Vector2((float)(rng.NextDouble() - 0.5), (float)(rng.NextDouble() - 0.5));
+                        if (wander.LengthSquared() > 0.0001f) wander.Normalize();
+                        Position += wander * Speed * 0.25f * dt;
+                        State = FoxState.Seeking;
+                    }
                     break;
 
                 case FoxState.Chasing:
@@ -110,14 +116,25 @@ namespace Project1
                         break;
                     }
 
-                    // Move toward rabbit
+                    // Move toward rabbit with a little steering jitter and speed variance
                     Vector2 direction = targetRabbit.Position - Position;
                     float distance = direction.Length();
 
                     if (distance > 0)
                         direction.Normalize();
 
-                    Position += direction * Speed * dt;
+                    // adds a jitter when chasing (more natural)
+                    float jitter = (float)(rng.NextDouble() * 0.6 - 0.3); // -0.3 .. +0.3
+                    Vector2 perp = new Vector2(-direction.Y, direction.X);
+                    direction += perp * jitter;
+
+                    if (direction.LengthSquared() > 0.0001f)
+                        direction.Normalize();
+
+                    // slight per-update speed variation
+                    float speedFactor = 0.9f + (float)rng.NextDouble() * 0.2f; // ~0.9 .. 1.1
+
+                    Position += direction * Speed * speedFactor * dt;
 
                     // Use hitbox intersection for reliable catch, then reset hunger immediately
                     if (targetRabbit != null && Bounds.Intersects(targetRabbit.Bounds))
@@ -137,15 +154,20 @@ namespace Project1
                     eatTimer += dt;
                     if (eatTimer >= EatDuration)
                     {
-                        hungerTimer = 0f; // Reset hunger after eating (redundant but safe)
+                        hungerTimer = 0f; // Reset hunger after eating
                         State = FoxState.Seeking;
                     }
                     break;
 
                 case FoxState.Idle:
-                    // Idle for a short random time, then start seeking again
+                    
                     eatTimer += dt;
-                    if (eatTimer >= rand.Next(2, 5))
+                    // small idle drifting
+                    Vector2 drift = new Vector2((float)(rng.NextDouble() - 0.5), (float)(rng.NextDouble() - 0.5));
+                    if (drift.LengthSquared() > 0.0001f) drift.Normalize();
+                    Position += drift * Speed * 0.15f * dt;
+
+                    if (eatTimer >= rng.Next(2, 5))
                     {
                         eatTimer = 0f;
                         State = FoxState.Seeking;
