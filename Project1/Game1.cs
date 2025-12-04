@@ -20,7 +20,7 @@ namespace Project1
     ///Textures for plants
     
 
-    public enum GameState // The states of the game (did this off my FSM I made in my analysis)
+    public enum GameState //The states of the game (did this off my FSM I made in my analysis)
     {
         MainMenu,
         Playing,
@@ -46,7 +46,7 @@ namespace Project1
         int rabbitCount = 20;
         int foxCount = 2;
         int mutationChance = 10; // percent
-        int terrainRoughness = 5; // terrain roughness level
+        int terrainRoughness = 5; //terrain roughness level
         int selectedBiome = 1;
 
         List<Button> menuButtons = new List<Button>(); //Buttons (menu)
@@ -82,10 +82,10 @@ namespace Project1
         float historySampleInterval = 1f; // sample population every 1 second
 
         // Simulation timer
-        float simulationTimer = 0f; // seconds elapsed for current simulation
-        float lastSimulationDuration = 0f; // stored when simulation ends (for GameOver display)
+        float simulationTimer = 0f; //how many seconds a simulation has been
+        float lastSimulationDuration = 0f; //stored when simulation ends (for GameOver display)
 
-        // Input state for edge detection
+        //Input
         KeyboardState previousKeyboard;
 
         public Game1()
@@ -101,39 +101,39 @@ namespace Project1
             base.Initialize();
         }
 
-        protected override void LoadContent()
+        protected override void LoadContent() //Load all the content
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             font = Content.Load<SpriteFont>("File");
-            menuButtons.Add(new Button// PLay button
+            menuButtons.Add(new Button//Play button
             {
                 Bounds = new Rectangle(300, 100, 200, 50),
                 Text = "Play",
                 Font = font,
                 OnClick = () => currentGameState = GameState.Playing
             });
-            menuButtons.Add(new Button// Tutorial button
+            menuButtons.Add(new Button//Tutorial button
             {
                 Bounds = new Rectangle(300, 160, 200, 50),
                 Text = "Tutorial",
                 Font = font,
                 OnClick = () => currentGameState = GameState.Tutorial
             });
-            menuButtons.Add(new Button// Terrain button
+            menuButtons.Add(new Button//Terrain button
             {
                 Bounds = new Rectangle(300, 220, 200, 50),
                 Text = "Terrain",
                 Font = font,
                 OnClick = () => currentGameState = GameState.Terrain
             });
-            menuButtons.Add(new Button// Settings button
+            menuButtons.Add(new Button//Settings button
             {
                 Bounds = new Rectangle(300, 280, 200, 50),
                 Text = "Settings",
                 Font = font,
                 OnClick = () => currentGameState = GameState.Settings
             });
-            menuButtons.Add(new Button// Quit button
+            menuButtons.Add(new Button//Quit button
             {
                 Bounds = new Rectangle(300, 340, 200, 50),
                 Text = "Quit",
@@ -141,7 +141,7 @@ namespace Project1
                 OnClick = () => Exit()
             });
 
-            // Rabbit + and -
+            //Rabbit + and -
             rabbitMinus = new Button
             {
                 Bounds = new Rectangle(250, 100, 40, 40),
@@ -157,7 +157,7 @@ namespace Project1
                 OnClick = () => { rabbitCount++; }
             };
 
-            // Fox + and -
+            //Fox + and -
             foxMinus = new Button
             {
                 Bounds = new Rectangle(250, 235, 40, 40),
@@ -173,7 +173,7 @@ namespace Project1
                 OnClick = () => { foxCount++; }
             };
 
-            // Mutation + and -
+            //Mutation + and -
             mutationMinus = new Button
             {
                 Bounds = new Rectangle(250, 345, 40, 40),
@@ -241,7 +241,7 @@ namespace Project1
                 }
             });
 
-            // Biome selection buttons 
+            //Biome selection buttons 
             terrainButtons.Add(new Button
             {
                 Bounds = new Rectangle(20, 100, 200, 40),
@@ -250,7 +250,7 @@ namespace Project1
                 OnClick = () =>
                 {
                     selectedBiome = 1;
-                    mapGenerator?.SetBiome(1);
+                    mapGenerator?.SetBiome(1);//Sets biome
                 }
             });
             terrainButtons.Add(new Button
@@ -261,7 +261,7 @@ namespace Project1
                 OnClick = () =>
                 {
                     selectedBiome = 2;
-                    mapGenerator?.SetBiome(2);
+                    mapGenerator?.SetBiome(2);//Sets biome
                 }
             });
             terrainButtons.Add(new Button
@@ -272,12 +272,12 @@ namespace Project1
                 OnClick = () =>
                 {
                     selectedBiome = 3;
-                    mapGenerator?.SetBiome(3);
+                    mapGenerator?.SetBiome(3);//Sets biome
                 }
             });
 
 
-            terrainButtons.Add(new Button// Exit button (terrain)
+            terrainButtons.Add(new Button//Exit button (terrain)
             {
                 Bounds = new Rectangle(550, 300, 200, 50),
                 Text = "Exit",
@@ -285,7 +285,7 @@ namespace Project1
                 OnClick = () => currentGameState = GameState.MainMenu
             });
 
-            // Pause UI buttons
+            //Pause UI buttons
             pauseContinueButton = new Button
             {
                 Bounds = new Rectangle(300, 220, 200, 50),
@@ -301,7 +301,7 @@ namespace Project1
                 Font = font,
                 OnClick = () =>
                 {
-                    // store final time and a last population sample, then go to GameOver (for our graph)
+                    //Store final time and a last population sample, then go to GameOver(for our graph)
                     lastSimulationDuration = simulationTimer;
                     rabbitHistory.Add(activeRabbits.Count);
                     foxHistory.Add(activeFoxes.Count);
@@ -335,9 +335,9 @@ namespace Project1
             activeRabbits.Clear(); // Clear any existing rabbits
 
             int margin = 10;
-            // match Rabbit draw scale
-            int rabbitWidth = (int)(rabbitTex?.Width * 0.7f ?? 8);
-            int rabbitHeight = (int)(rabbitTex?.Height * 0.7f ?? 8);
+            //match Rabbit draw scale
+            int rabbitWidth = (int)(rabbitTex?.Width * 0.7f ?? 8);//70% of texture's width, if null then it defualts to 8
+            int rabbitHeight = (int)(rabbitTex?.Height * 0.7f ?? 8);//70% of texture's height, if null then it defualts to 8
 
             int minX = margin;
             int minY = margin;
@@ -346,10 +346,10 @@ namespace Project1
 
             for (int i = 0; i < rabbitCount; i++)
             {
-                // Spawn rabbits at random positions on the map
+                //Spawn rabbits at random positions on the map
                 Vector2 spawnPosition = new Vector2(
-                    rng.Next(minX, maxXExclusive),
-                    rng.Next(minY, maxYExclusive)
+                    rng.Next(minX, maxXExclusive),//randomness
+                    rng.Next(minY, maxYExclusive)//randomness
                 );
 
                 activeRabbits.Add(new Rabbit(spawnPosition, rabbitTex));
@@ -359,12 +359,12 @@ namespace Project1
         }
         private void SpawnFoxes(int mapPixelWidth, int mapPixelHeight)
         {
-            activeFoxes.Clear(); // Clear any existing foxes
+            activeFoxes.Clear(); //Clear any existing foxes
 
             int margin = 10;
-            // Fox sprite scale
-            int foxWidth = (int)(foxTexture?.Width * 2f ?? 16);
-            int foxHeight = (int)(foxTexture?.Height * 2f ?? 16);
+            //Fox sprite scale
+            int foxWidth = (int)(foxTexture?.Width * 2f ?? 16);//scales width by 2 if null then sets it to 16
+            int foxHeight = (int)(foxTexture?.Height * 2f ?? 16);//scales height by 2 if null then sets it to 16
 
             int minX = margin;
             int minY = margin;
@@ -373,7 +373,7 @@ namespace Project1
 
             for (int i = 0; i < foxCount; i++)
             {
-                // Spawn foxes at random positions on the map
+                //Spawn foxes at random positions on the map
                 Vector2 spawnPosition = new Vector2(
                     rng.Next(minX, maxXExclusive),
                     rng.Next(minY, maxYExclusive)
@@ -389,7 +389,7 @@ namespace Project1
             currentMouse = Mouse.GetState();
             var currentKeyboard = Keyboard.GetState();
 
-            if (currentGameState == GameState.MainMenu)// Main menu
+            if (currentGameState == GameState.MainMenu)//Main menu
             {
                 foreach (var button in menuButtons)
                     button.Update(currentMouse, previousMouse);
@@ -399,28 +399,28 @@ namespace Project1
             }
             if (currentGameState == GameState.Playing)//Playing
             {
-                // toggle pause on P key (edge detect)
+                //toggle pause on P key (edge detect)
                 if (currentKeyboard.IsKeyDown(Keys.P) && !previousKeyboard.IsKeyDown(Keys.P))
                 {
-                    currentGameState = GameState.Paused;
+                    currentGameState = GameState.Paused;//was paused
                 }
 
-                // Initialize map if needed
-                if (mapGenerator == null)
+                //Initialize map if needed
+                if (mapGenerator == null) //if maps not working 
                 {
                     mapGenerator = new MapGenerator(80, 60, GraphicsDevice);
-                    mapGenerator.LoadContent();
+                    mapGenerator.LoadContent();//generate a new one
                 }
 
-                // Ensure map generator uses currently selected biome
+                //Ensure map generator uses currently selected biome
                 mapGenerator?.SetBiome(selectedBiome);
 
-                // Spawn rabbits once when entering play mode
+                //Spawn rabbits once when entering play mode
                 if (!rabbitsSpawned)
                 {
                     SpawnRabbits(mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                     SpawnFoxes(mapGenerator.PixelWidth, mapGenerator.PixelHeight); //Also decided to spawn the foxes here
-                    // clear any old history when starting a new simulation
+                    //clear any old history when starting a new simulation
                     rabbitHistory.Clear();
                     foxHistory.Clear();
                     plantHistory.Clear(); 
@@ -431,12 +431,12 @@ namespace Project1
                     lastSimulationDuration = 0f;
                 }
 
-                // continue simulation time
+                //continue simulation time
                 simulationTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
                 float time = (float)gameTime.TotalGameTime.TotalSeconds;
 
-                // Plants spawning 
+                //Plants spawning 
                 plantSpawnTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
                 if (plantSpawnTimer >= plantSpawnInterval)
                 {
@@ -450,18 +450,18 @@ namespace Project1
                     int maxYExclusive = Math.Max(minY + 1, mapGenerator.PixelHeight - margin - plantSize + 1);
 
                     Vector2 position = new Vector2(rng.Next(minX, maxXExclusive), rng.Next(minY, maxYExclusive));
-                    string type = rng.NextDouble() < 0.5 ? "Grass" : "Thorns";
-                    Texture2D tex = type == "Grass" ? grassTex : thornsTex;
+                    string type = rng.NextDouble() < 0.8 ? "Grass" : "Thorns";//random number between 0 and 1, if less than 0.8 (80%), then pick grass, otherwise choose Thorns 
+                    Texture2D tex = type == "Grass" ? grassTex : thornsTex;//matches that to texture
 
                     activePlants.Add(new Plant(position, type, time, tex));
                 }
 
-                // Despawn plants
+                //Despawn plants
                 for (int i = activePlants.Count - 1; i >= 0; i--)
                 {
                     if (time - activePlants[i].SpawnTime > 15f)
                     {
-                        // Check if any rabbit is currently eating this plant
+                        //Check if any rabbit is currently eating this plant
                         bool beingEaten = false;
                         foreach (var rabbit in activeRabbits)
                         {
@@ -474,7 +474,7 @@ namespace Project1
 
                         if (!beingEaten)
                         {
-                            // If any rabbits were targeting this plant, clear their target (and release assigned slot)
+                            //If any rabbits were targeting this plant, clear their target (and release assigned slot)
                             foreach (var rabbit in activeRabbits)
                             {
                                 if (rabbit.TargetPlant == activePlants[i])
@@ -492,13 +492,13 @@ namespace Project1
                 }
                 activeFoxes.RemoveAll(r => !r.Alive);//removes the dead foxes
 
-                // Update all rabbits
+                //Update all rabbits
                 foreach (var rabbit in activeRabbits)
                 {
                     rabbit.Update(gameTime, activePlants, activeFoxes, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
                 }
 
-                // Release targets for any rabbits that died during update before removing them
+                //Release targets for any rabbits that died during update before removing them
                 foreach (var dead in activeRabbits.Where(r => !r.Alive).ToList())
                 {
                     dead.ClearTarget();
@@ -506,9 +506,9 @@ namespace Project1
 
                 activeRabbits.RemoveAll(r => !r.Alive); //removes the dead rabbits 
 
-                // Breeding of rabbits 
+                //Breeding of rabbits 
                 float breedDistance = 20f;
-                var newBabies = new List<Rabbit>();
+                List<Rabbit> newBabies = new List<Rabbit>();
                 for (int i = 0; i < activeRabbits.Count; i++)
                 {
                     var r1 = activeRabbits[i];
