@@ -217,15 +217,29 @@ namespace Project1
                 Bounds = new Rectangle(560, 120, 40, 40),
                 Text = "-",
                 Font = font,
-                OnClick = () => { if (terrainRoughness > 1) terrainRoughness--; }
+                OnClick = () => { if (terrainRoughness > 1) { terrainRoughness--; mapGenerator?.SetRoughness(terrainRoughness); } }
             };
             roughnessPlus = new Button
             {
                 Bounds = new Rectangle(660, 120, 40, 40),
                 Text = "+",
                 Font = font,
-                OnClick = () => { if (terrainRoughness < 10) terrainRoughness++; }
+                OnClick = () => { if (terrainRoughness < 10) { terrainRoughness++; mapGenerator?.SetRoughness(terrainRoughness); } }
             };
+
+            // Reset roughness to default (terrain) button
+            terrainButtons.Add(new Button
+            {
+                Bounds = new Rectangle(550, 180, 200, 50),
+                Text = "Reset Roughness",
+                Font = font,
+                BackgroundColor = Color.Red,
+                OnClick = () =>
+                {
+                    terrainRoughness = 5; // default value
+                    mapGenerator?.SetRoughness(terrainRoughness);
+                }
+            });
 
             // Biome selection buttons 
             terrainButtons.Add(new Button
@@ -619,6 +633,9 @@ namespace Project1
                 {
                     mapGenerator = new MapGenerator(80, 60, GraphicsDevice);
                     mapGenerator.LoadContent();
+                    // ensure mapGenerator reflects current terrainRoughness
+                    mapGenerator.SetRoughness(terrainRoughness);
+                    mapGenerator.SetBiome(selectedBiome);
                 }
 
                 // Apply selected biome
@@ -698,19 +715,7 @@ namespace Project1
             }
             sb.DrawString(font, text, position, fill, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
         }
-        private void DrawRectangleOutline(SpriteBatch sb, Rectangle rect, int thickness, Color color)
-        {
-            //JUST FOR TESTING, SO I COULD SEE THE MAP BOUNDARIES AND HITBOXES
-
-            // top
-            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-            // bottom
-            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y + rect.Height - thickness, rect.Width, thickness), color);
-            // left
-            // sb.Draw(pixelTexture, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-            // right
-            // sb.Draw(pixelTexture, new Rectangle(rect.X + rect.Width - thickness, rect.Y, thickness, rect.Height), color);
-        }
+      
 
         private void DrawPopulationGraph(SpriteBatch sb, Rectangle area)
         {
@@ -866,9 +871,9 @@ namespace Project1
                 // Draw map border (based on map pixel size)
                 if (mapGenerator != null)
                 {
-                    int borderThickness = 3;
+                    
                     var mapRect = new Rectangle(0, 0, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
-                    DrawRectangleOutline(_spriteBatch, mapRect, borderThickness, Color.White);
+                    
                 }
 
     
