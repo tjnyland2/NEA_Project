@@ -43,7 +43,7 @@ namespace Project1
         private MapGenerator mapGenerator;
 
         //Default Values for my simulation
-        int rabbitCount = 20;
+        int rabbitCount = 25;
         int foxCount = 2;
         int mutationChance = 10; // percent
         int terrainRoughness = 5; //terrain roughness level
@@ -313,9 +313,8 @@ namespace Project1
             pauseButtons.Add(pauseEndButton);
 
             //Plant Textures (Temp)
-            grassTex = new Texture2D(GraphicsDevice, 1, 1);
-            grassTex.SetData(new[] { Color.Yellow });
-
+            grassTex = Content.Load<Texture2D>("Biome1Grass");
+           
             thornsTex = new Texture2D(GraphicsDevice, 1, 1);
             thornsTex.SetData(new[] { Color.DarkRed });
 
@@ -442,7 +441,7 @@ namespace Project1
                 {
                     plantSpawnTimer = 0f;
 
-                    int plantSize = 10;
+                    int plantSize = 50;// was 10
                     int margin = 10;
                     int minX = margin;
                     int minY = margin;
