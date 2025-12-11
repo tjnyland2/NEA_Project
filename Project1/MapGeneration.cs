@@ -18,6 +18,7 @@ namespace Project1
             float fx = x * scale;
             float fy = y * scale;
             return FBM(fx, fy, seed, octaves);
+            //lactice coordinates
         }
 
         // fractal Brownian motion: combine octaves of smooth value noise
@@ -28,7 +29,7 @@ namespace Project1
             float frequency = 1f;
             float persistence = 0.5f;
             float max = 0f;
-
+            //
             for (int i = 0; i < Math.Max(1, octaves); i++)
             {
                 total += amplitude * InterpolatedNoise(x * frequency, y * frequency, seed + i * 1337);

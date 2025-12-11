@@ -20,42 +20,52 @@ namespace Project1
         public Vector2 TargetPosition;
         public RabbitState State;
         public Texture2D Texture;
-        // TargetPlant is now controlled through methods that update Plant.AssignedRabbits safely
+ 
         public Plant TargetPlant { get; private set; }
         public float EatingTimer;
-        public float EatingDuration = 2f; // How long they spend eating
-        public float Speed = 70f; // pixels per second
+        public float EatingDuration = 2f; //How long they spend eating
+        public float Speed; //pixels per second
+       
         public bool Alive = true; //If the rabbit is alive 
 
-        private const float DrawScale = 0.7f; // scale used when drawing the rabbit
+        
+        public bool IsMutated { get; private set; } = false;//if the rabbit is mutated
+
+
+        private const float DrawScale = 0.7f; //scale used when drawing the rabbit
 
         // Hitbox height and width size based on texture size and draw scale
-        public int Width => (int)(Texture?.Width * DrawScale ?? 8);//was 8
-        public int Height => (int)(Texture?.Height * DrawScale ?? 8);//was 8
+        public int Width => (int)(Texture?.Width * DrawScale ?? 8);
+        public int Height => (int)(Texture?.Height * DrawScale ?? 8);
         public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
 
         // Breeding/eating tracking
         public bool HasEaten { get; private set; } = false;
         private float timeSinceAte = float.MaxValue;
         //CHANGED VALUES
-        private const float BREED_WINDOW = 8f;      // seconds after eating when rabbit can breed
-        private const float BREED_COOLDOWN = 10f;   // seconds cooldown after successful breeding
+        private const float BREED_WINDOW = 8f;      //seconds after eating when rabbit can breed
+        private const float BREED_COOLDOWN = 10f;   //seconds cooldown after successful breeding
         public float BreedingCooldown { get; private set; } = 0f;
 
         private List<Vector2> currentPath;
         private int currentPathIndex;
         private const int GRID_SIZE = 5; // map
-        private const float FOX_DETECTION_RANGE = 100f; // Range to detect foxes
+        private const float FOX_DETECTION_RANGE = 100f; //Range to detect foxes
 
         // Starvation
         private float hungerTimer = 0f;
-        private const float STARVATION_TIME = 20f; // seconds until rabbit dies without food
+        private const float STARVATION_TIME = 20f; //seconds until rabbit dies without food
 
         // Shared RNG for natural variation
         private static readonly Random rng = new Random();
 
-        public Rabbit(Vector2 startPosition, Texture2D texture)
+        // Base speeds
+        private const float BASE_SPEED = 70f;
+        private const float MUTATED_SPEED_BOOST = 25f; //mutated rabbits are faster
+
+        public Rabbit(Vector2 startPosition, Texture2D texture, bool isMutated = false)
         {
+
             Position = startPosition; //spawn
             Texture = texture;
             State = RabbitState.Seeking; //first state
@@ -67,6 +77,9 @@ namespace Project1
             BreedingCooldown = 0f;
             hungerTimer = 0f;
             TargetPlant = null;
+            IsMutated = isMutated; //if rabbit is mutated
+            Speed = BASE_SPEED + (IsMutated ? MUTATED_SPEED_BOOST : 0f);//mutated speed boost
+
         }
 
         // mapPixelWidth/mapPixelHeight are in pixels (not tiles)
@@ -185,6 +198,15 @@ namespace Project1
             {
                 if (plant == null) continue;
                 if (plant.AssignedRabbits >= Plant.MaxAssigned) continue; // skip full plants
+
+                // mutated rabbits can eat thorns; non-mutated cannot
+                if (!IsMutated && plant.Type == "Thorns") continue;
+
+                // mutated rabbits can eat thorns; non-mutated cannot
+                if (!IsMutated && plant.Type == "Thorns") continue;
+
+                // mutated rabbits can eat thorns; non-mutated cannot
+                if (!IsMutated && plant.Type == "Thorns") continue;
 
                 float distance = Vector2.Distance(Position, plant.Position);
                 if (distance < nearestDistance)
@@ -395,8 +417,25 @@ namespace Project1
         public void Draw(SpriteBatch spriteBatch)//Draw method for the rabbits
         {
             if (!Alive) return;
-            Color drawColor = Color.White;
-            spriteBatch.Draw(Texture, Position, null, Color.White, 0f, Vector2.Zero, DrawScale, SpriteEffects.None, 0f);
+
+            // mutated rabbits are white; non-mutated tinted brownish to indicate difference
+            Color drawColor = IsMutated ? Color.White : new Color(150, 120, 90);
+
+            // draw a thin dark outline to improve readability on varied backgrounds
+            float outlineScale = DrawScale;
+            int outlinePixels = 2;
+            Color outlineColor = Color.Black * 0.85f;
+            for (int ox = -outlinePixels; ox <= outlinePixels; ox++)
+            {
+                for (int oy = -outlinePixels; oy <= outlinePixels; oy++)
+                {
+                    if (ox == 0 && oy == 0) continue;
+                    spriteBatch.Draw(Texture, Position + new Vector2(ox, oy), null, outlineColor, 0f, Vector2.Zero, outlineScale, SpriteEffects.None, 0f);
+                }
+            }
+
+            // main sprite
+            spriteBatch.Draw(Texture, Position, null, drawColor, 0f, Vector2.Zero, DrawScale, SpriteEffects.None, 0f);
         }
     }
 }

@@ -43,13 +43,13 @@ namespace Project1
         private MapGenerator mapGenerator;
 
         //Default Values for my simulation
-        int rabbitCount = 25;
-        int foxCount = 2;
-        int mutationChance = 10; // percent
+        int rabbitCount = 100;
+        int foxCount = 5;
+        int mutationChance = 10; //percent
         int terrainRoughness = 5; //terrain roughness level
         int selectedBiome = 1;
 
-        List<Button> menuButtons = new List<Button>(); //Buttons (menu)
+        List<Button> menuButtons = new List<Button>(); //Buttons (menu)`
         MouseState currentMouse, previousMouse;
 
         List<Button> settingsButtons = new List<Button>();//Buttons (settings)
@@ -66,13 +66,13 @@ namespace Project1
         List<Rabbit> activeRabbits = new List<Rabbit>();//Rabbits
         List<Fox> activeFoxes = new List<Fox>();//Foxes
         
-        Texture2D grassTex, thornsTex, rabbitTex, foxTexture;//Plant,Rabbit and Fox Textures
-        Texture2D pixelTexture; // used to draw borders and hitbox outlines
+        Texture2D grassTex, thornsTex, rabbitTex, foxTexture;//Plant,Rabbit and Fox Textures //also add mutatedRabbitTex once I have made it
+        Texture2D pixelTexture; //used to draw borders
         Random rng = new Random();//randomness
         float plantSpawnTimer = 0f;
-        float plantSpawnInterval = 0.5f; // inbetween plants spawning (was 2)
+        float plantSpawnInterval = 0.5f; //seconds inbetween plants spawning
 
-        bool rabbitsSpawned = false; // make sure rabbits only spawn once
+        bool rabbitsSpawned = false; //make sure rabbits only spawn once
 
         // Population history for GameOver graph
         List<int> rabbitHistory = new List<int>();
@@ -198,8 +198,8 @@ namespace Project1
                 BackgroundColor = Color.Red,
                 OnClick = () =>
                 {
-                    rabbitCount = 25;
-                    foxCount = 2;
+                    rabbitCount = 100;
+                    foxCount = 5;
                     mutationChance = 10;
                 }
             });
@@ -312,14 +312,12 @@ namespace Project1
             pauseButtons.Add(pauseContinueButton);
             pauseButtons.Add(pauseEndButton);
 
-            //Plant Textures (Temp)
+            //Plant Textures
             grassTex = Content.Load<Texture2D>("Biome1Grass");
-           
-            thornsTex = new Texture2D(GraphicsDevice, 1, 1);
-            thornsTex.SetData(new[] { Color.DarkRed });
-
+            thornsTex = Content.Load<Texture2D>("ThornsTexture1");
             //Rabbit Texture
             rabbitTex = Content.Load<Texture2D>("rabbitrun");
+            //rabbitMutatedTex = Content.Load<Texture2D>("rabbitrun_white"); // 
 
             //Fox Texture
             foxTexture = Content.Load<Texture2D>("foxrun8");
@@ -452,7 +450,7 @@ namespace Project1
                     string type = rng.NextDouble() < 0.8 ? "Grass" : "Thorns";//random number between 0 and 1, if less than 0.8 (80%), then pick grass, otherwise choose Thorns 
                     Texture2D tex = type == "Grass" ? grassTex : thornsTex;//matches that to texture
 
-                    activePlants.Add(new Plant(position, type, time, tex));
+                    activePlants.Add(new Plant(position, type, time, tex, plantSize));
                 }
 
                 //Despawn plants
@@ -526,7 +524,26 @@ namespace Project1
                                 spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapGenerator.PixelWidth - 8));
                                 spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapGenerator.PixelHeight - 8));
 
-                                newBabies.Add(new Rabbit(spawnPos, rabbitTex));
+                                //Determine mutation for offspring
+                                bool offspringMutated = false;
+                                if (r1.IsMutated && r2.IsMutated)
+                                {
+                                    offspringMutated = true; // both mutated -> child mutated
+                                }
+                                else if (r1.IsMutated ^ r2.IsMutated)
+                                {
+                                    // one mutated, one not -> 50% + mutationChance%
+                                    double chance = 0.5 + (mutationChance / 100.0);
+                                    if (chance > 1.0) chance = 1.0;
+                                    offspringMutated = rng.NextDouble() < chance;
+                                }
+                                else
+                                {
+                                    // both non-mutated -> mutationChance% chance
+                                    offspringMutated = rng.NextDouble() < (mutationChance / 100.0);
+                                }
+
+                                newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
                                 r1.MarkBred();
                                 r2.MarkBred();
 
