@@ -10,6 +10,10 @@ namespace Project1
 {
     public static class Noise // value / Perlin-like noise (coherent interpolated noise + fBm)
     {
+
+
+        //I understand this more now, Will update and describe in own words, tricky one to explain
+
         // Generate coherent noise in range [0,1]. 'x' and 'y' are integer tile coordinates.
         // 'scale' controls feature size (larger scale -> larger features = smoother terrain),
         // 'seed' is a random seed, 'octaves' increases detail when >1.

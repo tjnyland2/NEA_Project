@@ -10,14 +10,13 @@ using static System.Net.Mime.MediaTypeNames;
 namespace Project1
 {
     
-    //Version 22/11/25 (1)
+    //Version 
 
     /// To do:
 
-    ///Mutations (Allowed only mutated rabbits to have certain plants)
-   ///Terrain roughness
-    /// Tutorial menu
-    ///Textures for plants
+    
+    /// Tutorial menu (Explain how the game works)
+   
     
 
     public enum GameState //The states of the game (did this off my FSM I made in my analysis)
@@ -45,7 +44,7 @@ namespace Project1
         //Default Values for my simulation
         int rabbitCount = 100;
         int foxCount = 5;
-        int mutationChance = 10; //percent
+        int mutationChance = 15; //percent
         int terrainRoughness = 5; //terrain roughness level
         int selectedBiome = 1;
 
@@ -70,7 +69,7 @@ namespace Project1
         Texture2D pixelTexture; //used to draw borders
         Random rng = new Random();//randomness
         float plantSpawnTimer = 0f;
-        float plantSpawnInterval = 0.5f; //seconds inbetween plants spawning
+        float plantSpawnInterval = 0.25f; //seconds inbetween plants spawning
 
         bool rabbitsSpawned = false; //make sure rabbits only spawn once
 
@@ -200,7 +199,7 @@ namespace Project1
                 {
                     rabbitCount = 100;
                     foxCount = 5;
-                    mutationChance = 10;
+                    mutationChance = 15;
                 }
             });
             settingsButtons.Add(new Button //Exit button (settings)
@@ -291,7 +290,7 @@ namespace Project1
                 Bounds = new Rectangle(300, 220, 200, 50),
                 Text = "Continue",
                 Font = font,
-                OnClick = () => currentGameState = GameState.Playing
+                OnClick = () => currentGameState = GameState.Playing//Returns to playing state 
             };
             pauseEndButton = new Button
             {
@@ -313,7 +312,7 @@ namespace Project1
             pauseButtons.Add(pauseEndButton);
 
             //Plant Textures
-            grassTex = Content.Load<Texture2D>("Biome1Grass");
+            grassTex = Content.Load<Texture2D>("Biome1GrassTrans");
             thornsTex = Content.Load<Texture2D>("ThornsTexture1");
             //Rabbit Texture
             rabbitTex = Content.Load<Texture2D>("rabbitrun");
@@ -544,11 +543,12 @@ namespace Project1
                                 }
 
                                 int babies = Random.Shared.Next(1, 5);
+                                //for (int r = 0; i < babies; r++) //random amount of offspring between 1 and 4
+                                //{
+                                    //newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
+                                // }
 
-                                for (int r = 0; i < babies; r++)
-                                {
-                                    newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
-                                }
+                                newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
                                 r1.MarkBred();
                                 r2.MarkBred();
 
@@ -669,7 +669,7 @@ namespace Project1
                     button.Update(currentMouse, previousMouse);
             }
 
-            if (currentGameState == GameState.Paused)
+            if (currentGameState == GameState.Playing)
             {
                 // Pause toggle 
                 if (currentKeyboard.IsKeyDown(Keys.P) && !previousKeyboard.IsKeyDown(Keys.P))
@@ -723,7 +723,7 @@ namespace Project1
             base.Update(gameTime);
         }
         // ADDED: helper to draw outlined text for readability, and improved DrawPopulationGraph
-        private void DrawTextOutlined(SpriteBatch sb, string text, Vector2 position, Color fill, Color outline, float scale = 1f, int outlinePixels = 2)
+        private void DrawTextOutlined(SpriteBatch sb, string text, Vector2 position, Color fill, Color outline, float scale = 1f, int outlinePixels = 1)
         {
             // draw outline by drawing the text offset around the main position
             for (int ox = -outlinePixels; ox <= outlinePixels; ox++)
@@ -810,7 +810,7 @@ namespace Project1
                 DrawLine(sb, new Vector2(x1, y1), new Vector2(x2, y2), plantColor, 3);
             }
 
-            // legend box
+            //legend box
             int legendW = 260;
             int legendH = 80;
             int legendX = plotRect.X + 8;
@@ -818,7 +818,7 @@ namespace Project1
             sb.Draw(pixelTexture, new Rectangle(legendX - 6, legendY - 6, legendW + 12, legendH + 12), Color.Black * 0.6f);
             sb.Draw(pixelTexture, new Rectangle(legendX - 6, legendY - 6, legendW + 12, 2), Color.Gray * 0.5f);
 
-            // legend entries with small colored squares
+            //legend entries with small colored squares
             int entryX = legendX;
             int entryY = legendY;
             int sw = 10;
@@ -837,7 +837,7 @@ namespace Project1
         }
         private void DrawLine(SpriteBatch sb, Vector2 start, Vector2 end, Color color, int thickness = 1)
         {
-            // draw line using pixelTexture
+            //draw line using pixelTexture
             Vector2 edge = end - start;
             float angle = (float)Math.Atan2(edge.Y, edge.X);
             float length = edge.Length();
@@ -888,17 +888,14 @@ namespace Project1
                     rabbit.Draw(_spriteBatch);
                 foreach (var fox in activeFoxes)//Foxes
                     fox.Draw(_spriteBatch);
-                
+
                 // Draw map border (based on map pixel size)
                 if (mapGenerator != null)
                 {
-                    
-                    var mapRect = new Rectangle(0, 0, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
-                    
-                }
 
-    
-               
+                    var mapRect = new Rectangle(0, 0, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
+
+                }
 
                 // Draw UI information
                 _spriteBatch.DrawString(font, $"Plants: {activePlants.Count}", new Vector2(10, 10), Color.White);
@@ -953,7 +950,7 @@ namespace Project1
                 foreach (var button in terrainButtons)
                     button.Draw(_spriteBatch);
             }
-            else if (currentGameState == GameState.Paused) // If paused
+            else if (currentGameState == GameState.Paused) //If paused
             {
                 // dim background
                 _spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * 0.6f);
@@ -977,11 +974,11 @@ namespace Project1
                 var graphArea = new Rectangle(100, 60, 600, 400);
                 DrawPopulationGraph(_spriteBatch, graphArea);
 
-                // summary text (was 720x changed to 600x)
-                _spriteBatch.DrawString(font, $"Final Rabbits: {rabbitHistory.LastOrDefault()}", new Vector2(550, 10), Color.Yellow);
-                _spriteBatch.DrawString(font, $"Final Foxes: {foxHistory.LastOrDefault()}", new Vector2(550, 50), Color.Red);
-                _spriteBatch.DrawString(font, $"Final Plants: {plantHistory.LastOrDefault()}", new Vector2(550, 90), Color.Lime); 
-                _spriteBatch.DrawString(font, $"Simulation Time: {FormatTime(lastSimulationDuration)}", new Vector2(550, 130), Color.White);
+                //summary text
+               // _spriteBatch.DrawString(font, $"Final Rabbits: {rabbitHistory.LastOrDefault()}", new Vector2(550, 10), Color.Yellow);
+               // _spriteBatch.DrawString(font, $"Final Foxes: {foxHistory.LastOrDefault()}", new Vector2(550, 50), Color.Red);
+               // _spriteBatch.DrawString(font, $"Final Plants: {plantHistory.LastOrDefault()}", new Vector2(550, 90), Color.Lime); 
+                _spriteBatch.DrawString(font, $"Simulation Time: {FormatTime(lastSimulationDuration)}", new Vector2(550, 10), Color.White);
                 _spriteBatch.DrawString(font, "Press ESC to return to main menu", new Vector2(10, 30), Color.White);
             }
 
