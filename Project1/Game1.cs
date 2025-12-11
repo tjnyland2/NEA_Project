@@ -543,11 +543,16 @@ namespace Project1
                                     offspringMutated = rng.NextDouble() < (mutationChance / 100.0);
                                 }
 
-                                newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
+                                int babies = Random.Shared.Next(1, 5);
+
+                                for (int r = 0; i < babies; r++)
+                                {
+                                    newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
+                                }
                                 r1.MarkBred();
                                 r2.MarkBred();
 
-                                // prevent same rabbits breeding again (this cycle)
+                                //prevent same rabbits breeding again (this cycle)
                                 break;
                             }
                         }

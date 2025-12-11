@@ -53,7 +53,7 @@ namespace Project1
             texture = tex;
             Alive = true;
             State = FoxState.Seeking;
-            Speed = 60f;
+            Speed = 120f;//
             // breeding timers initialised
             HasEaten = false;
             timeSinceAte = float.MaxValue;
