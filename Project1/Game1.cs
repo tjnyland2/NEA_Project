@@ -312,14 +312,15 @@ namespace Project1
             pauseButtons.Add(pauseEndButton);
 
             //Plant Textures
-            grassTex = Content.Load<Texture2D>("Biome1GrassTrans");
-            thornsTex = Content.Load<Texture2D>("ThornsTexture1");
+            grassTex = Content.Load<Texture2D>("Biome1GrassTrans");//was DesertGrass
+            thornsTex = Content.Load<Texture2D>("ThornsTexture1");//was cactus
+
             //Rabbit Texture
-            rabbitTex = Content.Load<Texture2D>("rabbitrun");
-            //rabbitMutatedTex = Content.Load<Texture2D>("rabbitrun_white"); // 
+            rabbitTex = Content.Load<Texture2D>("rabbitrun");//was rabbitrun
+ 
 
             //Fox Texture
-            foxTexture = Content.Load<Texture2D>("foxrun8");
+            foxTexture = Content.Load<Texture2D>("foxrun8");//was foxrun8
 
             // Pixel used to draw borders and outlines (just for testing)
             pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
