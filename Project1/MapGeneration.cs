@@ -10,10 +10,6 @@ namespace Project1
 {
     public static class Noise // value / Perlin-like noise (coherent interpolated noise + fBm)
     {
-
-
-        //I understand this more now, Will update and describe in own words, tricky one to explain
-
         // Generate coherent noise in range [0,1]. 'x' and 'y' are integer tile coordinates.
         // 'scale' controls feature size (larger scale -> larger features = smoother terrain),
         // 'seed' is a random seed, 'octaves' increases detail when >1.
@@ -22,7 +18,6 @@ namespace Project1
             float fx = x * scale;
             float fy = y * scale;
             return FBM(fx, fy, seed, octaves);
-            //lactice coordinates
         }
 
         // fractal Brownian motion: combine octaves of smooth value noise
@@ -33,7 +28,6 @@ namespace Project1
             float frequency = 1f;
             float persistence = 0.5f;
             float max = 0f;
-            //
             for (int i = 0; i < Math.Max(1, octaves); i++)
             {
                 total += amplitude * InterpolatedNoise(x * frequency, y * frequency, seed + i * 1337);
@@ -93,20 +87,19 @@ namespace Project1
     {
         private int width, height;
         private float[,] noiseMap;
-        private Texture2D grassTexture, waterTexture, plantTexture, grassTexture2;
+        private Texture2D grassTexture, waterTexture, plantTexture;
         private GraphicsDevice graphicsDevice;
 
-        // Tile size in pixels (exposed so callers can compute pixel dimensions)
-        public int TileSize { get; private set; } = 10;
+        // Optional art per biome loaded via Content.Load
+        private readonly Dictionary<int, (Texture2D grassArt, Texture2D plantArt)> biomeArt = new();
 
+        public int TileSize { get; private set; } = 10;
         public int MapTilesWidth => width;
         public int MapTilesHeight => height;
         public int PixelWidth => width * TileSize;
         public int PixelHeight => height * TileSize;
 
-        private int currentBiomeId = -1; // cached biome id -1 means none
-
-        // Roughness: 1..10. Higher -> more contours / finer detail.
+        private int currentBiomeId = -1;
         private int roughnessLevel = 5;
 
         public MapGenerator(int width, int height, GraphicsDevice graphicsDevice)
@@ -118,81 +111,82 @@ namespace Project1
             GenerateNoiseMap();
         }
 
-        private void GenerateNoiseMap()//Use of Perlin-like fBm noise
+        private void GenerateNoiseMap()
         {
-            // Map roughness (1..10) to a base scale and octaves:
-            // - Higher roughness -> smaller scale (finer features) and more octaves (more contours).
-            // Chosen mapping: scale = baseScale / roughnessLevel, baseScale tuned for tile grid.
-            float baseScale = 0.08f; // tuned experimentally for map sizes used in project
+            float baseScale = 0.08f;
             float scale = baseScale / Math.Max(1, roughnessLevel);
 
             int seed = new Random().Next(0, 10000);
-            int octaves = Math.Min(6, 1 + roughnessLevel / 2); // more octaves for greater detail
+            int octaves = Math.Min(6, 1 + roughnessLevel / 2);
 
             for (int x = 0; x < width; x++)
-            {
                 for (int y = 0; y < height; y++)
-                {
-                    float noiseValue = Noise.Generate(x, y, scale, seed, octaves);
-                    noiseMap[x, y] = noiseValue;
-                }
-            }
+                    noiseMap[x, y] = Noise.Generate(x, y, scale, seed, octaves);
         }
 
-        // Public setter so callers (Game1) can change roughness and immediately regenerate the map
         public void SetRoughness(int level)
         {
             int clamped = Math.Clamp(level, 1, 10);
-            if (clamped == roughnessLevel)
-                return;
+            if (clamped == roughnessLevel) return;
             roughnessLevel = clamped;
             GenerateNoiseMap();
         }
 
-        public void LoadContent()//Map textures (create defaults)
+        // Legacy fallback: create 1x1 color textures
+        public void LoadContent()
         {
-            // default biome
             CreateTextures(Color.ForestGreen, Color.DarkGreen, Color.DarkBlue);
-            currentBiomeId = -1; // ensure first SetBiome will create proper textures
+            currentBiomeId = -1;
         }
 
-        // Call this to change the biome; will recreate 1x1 textures only when biome changes
+        // New: attempt to load art assets for biomes; call this with Game1.Content
+        public void LoadContent(ContentManager content)
+        {
+            // try load art for biomes 1..3 (adjust names if your assets differ)
+            for (int b = 1; b <= 3; b++)
+            {
+                Texture2D grassArt = null;
+                Texture2D plantArt = null;
+                try { grassArt = content.Load<Texture2D>($"Biome{b}GrassTrans"); } catch { grassArt = null; }
+                try { plantArt = content.Load<Texture2D>($"ThornsTexture{b}"); } catch { plantArt = null; }
+                biomeArt[b] = (grassArt, plantArt);
+            }
+
+            // create fallback 1x1 textures; later SetBiome will override with art if available
+            CreateTextures(Color.ForestGreen, Color.DarkGreen, Color.DarkBlue);
+        }
+
         public void SetBiome(int biomeId)
         {
-            if (biomeId == currentBiomeId)
-                return;
-
+            if (biomeId == currentBiomeId) return;
             currentBiomeId = biomeId;
 
             switch (biomeId)
             {
-                case 1: // Grassland style
-                    CreateTextures(
-                        grass: new Color(80, 160, 60),    // grass
-                        plant: new Color(34, 139, 34),    // plants
-                        water: new Color(28, 58, 148));   // water
+                case 1:
+                    CreateTextures(new Color(80, 160, 60), new Color(34, 139, 34), new Color(28, 58, 148));
                     break;
-                case 2: // Mossy / pale
-                    CreateTextures(
-                        grass: new Color(120, 180, 120),
-                        plant: new Color(170, 200, 170),
-                        water: new Color(35, 75, 120));
+                case 2:
+                    CreateTextures(new Color(120, 180, 120), new Color(170, 200, 170), new Color(35, 75, 120));
                     break;
-                case 3: // desert
-                    CreateTextures(
-                        grass: new Color(210, 180, 140), // sand
-                        plant: new Color(200, 160, 80),  // dry plants 
-                        water: new Color(210, 180, 140));//made this same as sand as no water in desert
+                case 3:
+                    CreateTextures(new Color(210, 180, 140), new Color(200, 160, 80), new Color(210, 180, 140));
                     break;
-                default: // fallback
+                default:
                     CreateTextures(Color.ForestGreen, Color.DarkGreen, Color.DarkBlue);
                     break;
+            }
+
+            // If art was loaded for this biome, use it to override the 1x1 textures
+            if (biomeArt.TryGetValue(biomeId, out var art))
+            {
+                if (art.grassArt != null) grassTexture = art.grassArt;
+                if (art.plantArt != null) plantTexture = art.plantArt;
             }
         }
 
         private void CreateTextures(Color grass, Color plant, Color water)
         {
-            // Dispose old textures safely (optional but good)
             grassTexture?.Dispose();
             plantTexture?.Dispose();
             waterTexture?.Dispose();
@@ -207,20 +201,27 @@ namespace Project1
             waterTexture.SetData(new[] { water });
         }
 
+        // Return the texture for a given plant type (visual only)
+        public Texture2D GetPlantTexture(string type)
+        {
+            if (string.Equals(type, "Grass", StringComparison.OrdinalIgnoreCase))
+                return grassTexture;
+            if (string.Equals(type, "Thorns", StringComparison.OrdinalIgnoreCase))
+                return plantTexture;
+            return grassTexture;
+        }
+
         public void Draw(SpriteBatch spriteBatch)
         {
-            int tileSize = TileSize; // use exposed tile size
-
+            int tileSize = TileSize;
             for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < height; y++)//Makes a "grid" with x and y
+                for (int y = 0; y < height; y++)
                 {
-                    // thresholding noise to pick a texture; noiseMap in [0,1].
-                    Texture2D texture = noiseMap[x, y] < 0.5f ? plantTexture : grassTexture; //was using waterTexture
-                    spriteBatch.Draw(texture, new Rectangle(x * tileSize, y * tileSize, tileSize, tileSize), Color.White);//draws map
+                    Texture2D texture = noiseMap[x, y] < 0.5f ? plantTexture : grassTexture;
+                    spriteBatch.Draw(texture, new Rectangle(x * tileSize, y * tileSize, tileSize, tileSize), Color.White);
                 }
             }
         }
     }
-
 }

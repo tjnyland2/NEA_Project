@@ -61,6 +61,13 @@ namespace Project1
         List<Button> pauseButtons = new List<Button>();
         Button pauseContinueButton, pauseEndButton;
 
+        // Tutorial UI
+        List<Texture2D> tutorialSlides = new List<Texture2D>();
+        int tutorialIndex = 0;
+        Button tutorialBackButton, tutorialNextButton, tutorialExitButton;
+        const int TutorialSlideCount = 5;
+
+
         List<Plant> activePlants = new List<Plant>();//Plants 
         List<Rabbit> activeRabbits = new List<Rabbit>();//Rabbits
         List<Fox> activeFoxes = new List<Fox>();//Foxes
@@ -420,7 +427,7 @@ namespace Project1
                     //clear any old history when starting a new simulation
                     rabbitHistory.Clear();
                     foxHistory.Clear();
-                    plantHistory.Clear(); 
+                    plantHistory.Clear();
                     historySampleTimer = 0f;
 
                     // reset simulation timer
@@ -546,7 +553,7 @@ namespace Project1
                                 int babies = Random.Shared.Next(1, 5);
                                 //for (int r = 0; i < babies; r++) //random amount of offspring between 1 and 4
                                 //{
-                                    //newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
+                                //newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
                                 // }
 
                                 newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
@@ -588,13 +595,13 @@ namespace Project1
                                 f1.MarkBred();
                                 f2.MarkBred();
 
-                                
+
                                 break; //stop foxes breeding again 
                             }
                         }
                     }
                 }
-                
+
                 if (newFoxes.Count > 0)
                     activeFoxes.AddRange(newFoxes);
 
@@ -605,9 +612,9 @@ namespace Project1
                     historySampleTimer -= historySampleInterval;
                     rabbitHistory.Add(activeRabbits.Count);
                     foxHistory.Add(activeFoxes.Count);
-                    plantHistory.Add(activePlants.Count); 
+                    plantHistory.Add(activePlants.Count);
                 }
-                
+
                 if (activeRabbits.Count == 0 || activeFoxes.Count == 0)// If one of the species is dead
                 {
                     // store final simulation time for GameOver screen
@@ -616,7 +623,7 @@ namespace Project1
                     // add a final sample for the graph
                     rabbitHistory.Add(activeRabbits.Count);
                     foxHistory.Add(activeFoxes.Count);
-                    plantHistory.Add(activePlants.Count); 
+                    plantHistory.Add(activePlants.Count);
 
                     currentGameState = GameState.GameOver; //Game over
                 }
@@ -632,7 +639,7 @@ namespace Project1
                     rabbitsSpawned = false;
                     rabbitHistory.Clear();
                     foxHistory.Clear();
-                    plantHistory.Clear(); 
+                    plantHistory.Clear();
                 }
             }
             if (currentGameState == GameState.Settings)//Settings
@@ -693,7 +700,7 @@ namespace Project1
                     rabbitsSpawned = false;
                     rabbitHistory.Clear();
                     foxHistory.Clear();
-                    plantHistory.Clear(); 
+                    plantHistory.Clear();
                     historySampleTimer = 0f;
                     simulationTimer = 0f;
                 }
@@ -712,7 +719,7 @@ namespace Project1
                     rabbitsSpawned = false;
                     rabbitHistory.Clear();
                     foxHistory.Clear();
-                    plantHistory.Clear(); 
+                    plantHistory.Clear();
                     historySampleTimer = 0f;
                     simulationTimer = 0f;
                     lastSimulationDuration = 0f;
@@ -723,7 +730,6 @@ namespace Project1
             previousKeyboard = currentKeyboard;
             base.Update(gameTime);
         }
-        // ADDED: helper to draw outlined text for readability, and improved DrawPopulationGraph
         private void DrawTextOutlined(SpriteBatch sb, string text, Vector2 position, Color fill, Color outline, float scale = 1f, int outlinePixels = 1)
         {
             // draw outline by drawing the text offset around the main position
@@ -966,6 +972,17 @@ namespace Project1
                 // Draw pause menu buttons
                 foreach (var b in pauseButtons)
                     b.Draw(_spriteBatch);
+            }
+
+            else if (currentGameState == GameState.Tutorial) //If paused
+            {
+                // dim background
+                _spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * 0.6f);
+
+                _spriteBatch.DrawString(font, "Tutorial(yet to be made)", new Vector2(340, 60), Color.White);
+               
+
+
             }
             else if (currentGameState == GameState.GameOver)
             {
