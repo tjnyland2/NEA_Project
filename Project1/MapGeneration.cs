@@ -8,11 +8,12 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace Project1
 {
-    public static class Noise // value / Perlin-like noise (coherent interpolated noise + fBm)
+    public static class Noise //value ( Using Perlin's noise and FBM)
     {
-        // Generate coherent noise in range [0,1]. 'x' and 'y' are integer tile coordinates.
-        // 'scale' controls feature size (larger scale -> larger features = smoother terrain),
-        // 'seed' is a random seed, 'octaves' increases detail when >1.
+        //Generates a noise value.
+        // 'scale' controls feature size.
+        //'seed' is a random seed
+        //'octaves' controls the amount of detail.
         public static float Generate(int x, int y, float scale, int seed, int octaves = 1)
         {
             float fx = x * scale;
@@ -20,7 +21,7 @@ namespace Project1
             return FBM(fx, fy, seed, octaves);
         }
 
-        // fractal Brownian motion: combine octaves of smooth value noise
+        //fractal Brownian motion: combine octaves of smooth value noise
         private static float FBM(float x, float y, int seed, int octaves)
         {
             float total = 0f;
@@ -36,12 +37,12 @@ namespace Project1
                 frequency *= 2f;
             }
 
-            float result = total / Math.Max(0.0001f, max); // normalize to approximately -1..1
-            // InterpolatedNoise returns in [-1,1] so map to [0,1]
+            float result = total / Math.Max(0.0001f, max); //normalize to approximately -1..1
+            //InterpolatedNoise returns in [-1,1] so map to [0,1]
             return Math.Clamp(result * 0.5f + 0.5f, 0f, 1f);
         }
 
-        // Smooth value noise via bilinear interpolation with a smoothstep curve
+        //Smooth value noise using bilinear interpolation
         private static float InterpolatedNoise(float x, float y, int seed)
         {
             int xi = (int)Math.Floor(x);
@@ -65,7 +66,7 @@ namespace Project1
             return value;
         }
 
-        // deterministic pseudo-random value per integer lattice point in [-1,1]
+        //Puts a random value at each coordinate 
         private static float ValueNoise(int xi, int yi, int seed)
         {
             unchecked
@@ -90,8 +91,7 @@ namespace Project1
         private Texture2D grassTexture, waterTexture, plantTexture;
         private GraphicsDevice graphicsDevice;
 
-        // Optional art per biome loaded via Content.Load
-        private readonly Dictionary<int, (Texture2D grassArt, Texture2D plantArt)> biomeArt = new();
+    
 
         public int TileSize { get; private set; } = 10;
         public int MapTilesWidth => width;
@@ -139,24 +139,24 @@ namespace Project1
             currentBiomeId = -1;
         }
 
-        // New: attempt to load art assets for biomes; call this with Game1.Content
+        //Change plants for each plant type based on biome
         public void LoadContent(ContentManager content)
         {
-            // try load art for biomes 1..3 (adjust names if your assets differ)
+            //Try loading the art based on names
             for (int b = 1; b <= 3; b++)
             {
                 Texture2D grassArt = null;
                 Texture2D plantArt = null;
                 try { grassArt = content.Load<Texture2D>($"Biome{b}GrassTrans"); } catch { grassArt = null; }
                 try { plantArt = content.Load<Texture2D>($"ThornsTexture{b}"); } catch { plantArt = null; }
-                biomeArt[b] = (grassArt, plantArt);
+               
             }
 
-            // create fallback 1x1 textures; later SetBiome will override with art if available
+            //If it doesn't work
             CreateTextures(Color.ForestGreen, Color.DarkGreen, Color.DarkBlue);
         }
 
-        public void SetBiome(int biomeId)
+        public void SetBiome(int biomeId) //Biome colours
         {
             if (biomeId == currentBiomeId) return;
             currentBiomeId = biomeId;
@@ -177,12 +177,7 @@ namespace Project1
                     break;
             }
 
-            // If art was loaded for this biome, use it to override the 1x1 textures
-            if (biomeArt.TryGetValue(biomeId, out var art))
-            {
-                if (art.grassArt != null) grassTexture = art.grassArt;
-                if (art.plantArt != null) plantTexture = art.plantArt;
-            }
+          
         }
 
         private void CreateTextures(Color grass, Color plant, Color water)
@@ -201,7 +196,7 @@ namespace Project1
             waterTexture.SetData(new[] { water });
         }
 
-        // Return the texture for a given plant type (visual only)
+        // Return the texture for a given plant type
         public Texture2D GetPlantTexture(string type)
         {
             if (string.Equals(type, "Grass", StringComparison.OrdinalIgnoreCase))

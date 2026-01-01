@@ -42,8 +42,8 @@ namespace Project1
         private MapGenerator mapGenerator;
 
         //Default Values for my simulation
-        int rabbitCount = 100;
-        int foxCount = 5;
+        int rabbitCount = 50;
+        int foxCount = 2;
         int mutationChance = 15; //percent
         int terrainRoughness = 5; //terrain roughness level
         int selectedBiome = 1;
@@ -204,8 +204,8 @@ namespace Project1
                 BackgroundColor = Color.Red,
                 OnClick = () =>
                 {
-                    rabbitCount = 100;
-                    foxCount = 5;
+                    rabbitCount = 50;
+                    foxCount = 2;
                     mutationChance = 15;
                 }
             });
