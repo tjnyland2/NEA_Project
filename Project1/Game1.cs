@@ -65,8 +65,9 @@ namespace Project1
         List<Texture2D> tutorialSlides = new List<Texture2D>();
         int tutorialIndex = 0;
         Button tutorialBackButton, tutorialNextButton, tutorialExitButton;
+        Button tutorialRestartButton, tutorialStartButton;
         const int TutorialSlideCount = 5;
-
+        string[] tutorialTexts;
 
         List<Plant> activePlants = new List<Plant>();//Plants 
         List<Rabbit> activeRabbits = new List<Rabbit>();//Rabbits
@@ -332,6 +333,84 @@ namespace Project1
             // Pixel used to draw borders and outlines (just for testing)
             pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
             pixelTexture.SetData(new[] { Color.White });
+
+         
+            // Try to load tutorial images named "tutorial1" .. "tutorialN". If missing, keep null so draw will show a placeholder.
+            tutorialSlides.Clear();
+            for (int i = 1; i <= TutorialSlideCount; i++)
+            {
+                try
+                {
+                    var tex = Content.Load<Texture2D>($"tutorial{i}");
+                    tutorialSlides.Add(tex);
+                }
+                catch
+                {
+                    tutorialSlides.Add(null);
+                }
+            }
+
+            // Simple explanatory text for each slide (keeps UI self-contained)
+            tutorialTexts = new string[ TutorialSlideCount ]
+            {
+                "Main Menu.",
+                "Terrain",
+                "Settings",
+                "Play",
+                "Graph"
+            };
+
+            // Tutorial buttons (keeps layout similar to settings)
+            tutorialBackButton = new Button
+            {
+                Bounds = new Rectangle(160, 430, 120, 40),
+                Text = "< Back",
+                Font = font,
+                OnClick = () => { if (tutorialIndex > 0) tutorialIndex--; }
+            };
+            tutorialNextButton = new Button
+            {
+                Bounds = new Rectangle(480, 430, 120, 40),
+                Text = "Next >",
+                Font = font,
+                OnClick = () => { if (tutorialIndex < TutorialSlideCount - 1) tutorialIndex++; }
+            };
+            tutorialExitButton = new Button
+            {
+                Bounds = new Rectangle(650, 430, 140, 40),
+                Text = "Exit to Menu",
+                Font = font,
+                BackgroundColor = Color.Red,
+                OnClick = () => currentGameState = GameState.MainMenu
+            };
+            tutorialRestartButton = new Button
+            {
+                Bounds = new Rectangle(320, 430, 150, 40),
+                Text = "Restart Slides",
+                Font = font,
+                OnClick = () => tutorialIndex = 0
+            };
+            tutorialStartButton = new Button
+            {
+                Bounds = new Rectangle(320, 480, 200, 40),
+                Text = "Start Simulation",
+                Font = font,
+                BackgroundColor = Color.Green,
+                OnClick = () =>
+                {
+                    // Transition to playing; ensure simulation re-initializes
+                    rabbitsSpawned = false;
+                    activePlants.Clear();
+                    activeRabbits.Clear();
+                    activeFoxes.Clear();
+                    rabbitHistory.Clear();
+                    foxHistory.Clear();
+                    plantHistory.Clear();
+                    historySampleTimer = 0f;
+                    simulationTimer = 0f;
+                    currentGameState = GameState.Playing;
+                }
+            };
         }
 
         private void SpawnRabbits(int mapPixelWidth, int mapPixelHeight)
@@ -367,8 +446,8 @@ namespace Project1
 
             int margin = 10;
             //Fox sprite scale
-            int foxWidth = (int)(foxTexture?.Width * 2f ?? 16);//scales width by 2 if null then sets it to 16
-            int foxHeight = (int)(foxTexture?.Height * 2f ?? 16);//scales height by 2 if null then sets it to 16
+            int foxWidth = (int)(foxTexture?.Width * 2f ?? 16);//scales width by 2 if null then it sets it to 16
+            int foxHeight = (int)(foxTexture?.Height * 2f ?? 16);//scales height by 2 if null then it sets it to 16
 
             int minX = margin;
             int minY = margin;
@@ -706,6 +785,38 @@ namespace Project1
                 }
             }
 
+            if (currentGameState == GameState.Tutorial)
+            {
+                // Mouse-driven buttons
+                tutorialBackButton.Update(currentMouse, previousMouse);
+                tutorialNextButton.Update(currentMouse, previousMouse);
+                tutorialExitButton.Update(currentMouse, previousMouse);
+
+                // Show restart / start options on last slide
+                if (tutorialIndex == TutorialSlideCount - 1)
+                {
+                    tutorialRestartButton.Update(currentMouse, previousMouse);
+                    tutorialStartButton.Update(currentMouse, previousMouse);
+                }
+
+                // Keyboard navigation (edge detect)
+                if (currentKeyboard.IsKeyDown(Keys.Right) && !previousKeyboard.IsKeyDown(Keys.Right))
+                {
+                    if (tutorialIndex < TutorialSlideCount - 1)
+                        tutorialIndex++;
+                }
+                if (currentKeyboard.IsKeyDown(Keys.Left) && !previousKeyboard.IsKeyDown(Keys.Left))
+                {
+                    if (tutorialIndex > 0)
+                        tutorialIndex--;
+                }
+                // Escape exits to menu
+                if (currentKeyboard.IsKeyDown(Keys.Escape))
+                {
+                    currentGameState = GameState.MainMenu;
+                }
+            }
+
             if (currentGameState == GameState.GameOver)
             {
                 // Allow returning to main menu and clear simulation state/history
@@ -974,15 +1085,60 @@ namespace Project1
                     b.Draw(_spriteBatch);
             }
 
-            else if (currentGameState == GameState.Tutorial) //If paused
+            else if (currentGameState == GameState.Tutorial) //Tutorial
             {
-                // dim background
+                
                 _spriteBatch.Draw(pixelTexture, new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height), Color.Black * 0.6f);
+               // _spriteBatch.DrawString(font, "Tutorial", new Vector2(340, 10), Color.White);
 
-                _spriteBatch.DrawString(font, "Tutorial(yet to be made)", new Vector2(340, 60), Color.White);
+                // Slide area
+                var slideRect = new Rectangle(-325, -10, 1450, 450);//120, 60, 600, 360
+
+                // Draw slide texture when available, otherwise draw placeholder
+                var tex = tutorialSlides.ElementAtOrDefault(tutorialIndex);
+                if (tex != null)
+                {
+                    // Fit texture into slideRect preserving aspect ratio
+                    float texAspect = (float)tex.Width / tex.Height;
+                    float rectAspect = (float)slideRect.Width / slideRect.Height;
+                    Rectangle dest = slideRect;
+                    if (texAspect > rectAspect)
+                    {
+                        // texture is wider -> fit width
+                        int h = (int)(slideRect.Width / texAspect);
+                        dest = new Rectangle(slideRect.X, slideRect.Y + (slideRect.Height - h) / 2, slideRect.Width, h);
+                    }
+                    else
+                    {
+                        // texture is taller -> fit height
+                        int w = (int)(slideRect.Height * texAspect);
+                        dest = new Rectangle(slideRect.X + (slideRect.Width - w) / 2, slideRect.Y, w, slideRect.Height);
+                    }
+                    _spriteBatch.Draw(tex, dest, Color.White);
+                }
+                else
+                {
+                    // placeholder rectangle
+                    _spriteBatch.Draw(pixelTexture, slideRect, Color.DarkGray * 0.95f);
+                    DrawTextOutlined(_spriteBatch, $"Slide {tutorialIndex + 1} (image not found)", new Vector2(slideRect.X + 20, slideRect.Y + 20), Color.White, Color.Black, 1f, 2);
+                }
+
                
+               
+                // Draw navigation buttons (left, right, exit)
+                tutorialBackButton.Draw(_spriteBatch);
+                tutorialNextButton.Draw(_spriteBatch);
+                tutorialExitButton.Draw(_spriteBatch);
 
+                // If last slide, show restart and start simulation options
+                if (tutorialIndex == TutorialSlideCount - 1)
+                {
+                    tutorialRestartButton.Draw(_spriteBatch);
+                    tutorialStartButton.Draw(_spriteBatch);
+                }
 
+                // small hint
+                DrawTextOutlined(_spriteBatch, "Use Left/Right arrows or click the buttons to navigate. ESC = Exit to menu", new Vector2(110, slideRect.Y + slideRect.Height + 76), Color.LightGray, Color.Black, 0.85f, 2);
             }
             else if (currentGameState == GameState.GameOver)
             {
