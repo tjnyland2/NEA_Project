@@ -13,10 +13,7 @@ namespace Project1
     //Version 
 
     /// To do:
-
-    
-    /// Tutorial menu (Explain how the game works)
-   
+    ///Clean up code
     
 
     public enum GameState //The states of the game (did this off my FSM I made in my analysis)
