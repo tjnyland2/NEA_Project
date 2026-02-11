@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Project1;
 
 namespace Project1
 {
@@ -14,38 +13,29 @@ namespace Project1
         Idle       //Resting
     }
 
-    public class Fox
+    public class Fox : Animal//Inhereance from Animal Class
     {
-        public Vector2 Position;
-        public float Speed;
-        public bool Alive;
         public FoxState State;
 
         private Rabbit targetRabbit;
         private float eatTimer;
-        // Randomness of movement
+        //Randomness of movement to make it seems more natural
         private static readonly Random rng = new Random();
         private Texture2D texture;
 
-        private float hungerTimer;
-        private const float STARVATION_TIME = 20f; //Fox dies without food (starves)
-
-        //How long fox eats for (seconds)
+        //How long fox eats for
         private const float EatDuration = 3f;
 
         private const float DrawScale = 2f; //same scale used when drawing the fox
 
-        // Width and Height of the hitbox is derived from fox texture size :) 
-        public int Width => (int)(texture?.Width * DrawScale ?? 16);
-        public int Height => (int)(texture?.Height * DrawScale ?? 16);
-        public Rectangle Bounds => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
+        //Width and Height of the hitbox is derived from fox texture size 
+        public override int Width => (int)(texture?.Width * DrawScale ?? 16);
+        public override int Height => (int)(texture?.Height * DrawScale ?? 16);
 
-        //Breeding/eating tracking (similar to Rabbit)
-        public bool HasEaten { get; private set; } = false;
-        private float timeSinceAte = float.MaxValue;
-        private const float BREED_WINDOW = 8f;      //seconds after eating when fox can breed
-        private const float BREED_COOLDOWN = 12f;   //seconds cooldown after successful breeding
-        public float BreedingCooldown { get; private set; } = 0f;
+        //Fox specfic timers
+        private const float FOX_BREED_WINDOW = 8f;
+        private const float FOX_BREED_COOLDOWN = 12f;
+        private const float FOX_STARVATION_TIME = 20f;
 
         public Fox(Vector2 startPos, Texture2D tex)
         {
@@ -53,42 +43,28 @@ namespace Project1
             texture = tex;
             Alive = true;
             State = FoxState.Seeking;
-            Speed = 120f;//
-            //breeding timers initialised
+
+            //specific speeds and timers
+            Speed = 120f;
+            starvationTime = FOX_STARVATION_TIME;
+            breedWindow = FOX_BREED_WINDOW;
+            breedCooldownTime = FOX_BREED_COOLDOWN;
             HasEaten = false;
             timeSinceAte = float.MaxValue;
             BreedingCooldown = 0f;
+            hungerTimer = 0f;
         }
 
         //Fox movement
-        public void Update(GameTime gameTime, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)//within the borders
+        public void Update(GameTime gameTime, List<Rabbit> rabbits, int mapPixelWidth, int mapPixelHeight)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            hungerTimer += dt;
-            if (hungerTimer >= STARVATION_TIME) //Fox starves to death
-            {
-                Alive = false;
-                return;
-            }
+
+            //update common timers
+            UpdateCommonTimers(dt);
 
             if (!Alive)
                 return;
-
-            //Update breeding/eating timers
-            if (HasEaten)
-            {
-                timeSinceAte += dt;
-                if (timeSinceAte > BREED_WINDOW)
-                {
-                    HasEaten = false;
-                }
-            }
-
-            if (BreedingCooldown > 0f)
-            {
-                BreedingCooldown -= dt;
-                if (BreedingCooldown < 0f) BreedingCooldown = 0f;
-            }
 
             switch (State)
             {
@@ -100,7 +76,7 @@ namespace Project1
                         State = FoxState.Chasing;
                     else
                     {
-                        //small random wander when no target found
+                        //small random wander when no target found (more natural movement)
                         Vector2 wander = new Vector2((float)(rng.NextDouble() - 0.5), (float)(rng.NextDouble() - 0.5));
                         if (wander.LengthSquared() > 0.0001f) wander.Normalize();
                         Position += wander * Speed * 0.25f * dt;
@@ -116,7 +92,7 @@ namespace Project1
                         break;
                     }
 
-                    //Move toward rabbit with a little steering jitter and speed variance
+                    //Move toward rabbit with a little steering jitter and speed variance (for more natural movement)
                     Vector2 direction = targetRabbit.Position - Position;
                     float distance = direction.Length();
 
@@ -136,11 +112,11 @@ namespace Project1
 
                     Position += direction * Speed * speedFactor * dt;
 
-                    //Use hitbox intersection for reliable catch (was a bit biggy when I did it based of coordinates so using hotboxes and collsion)
+                    //Hitbox Intersection (catching rabbit)
                     if (targetRabbit != null && Bounds.Intersects(targetRabbit.Bounds))
                     {
                         targetRabbit.Alive = false;
-                        hungerTimer = 0f;      // reset hunger immediately on successful catch
+                        ResetHunger();      //reset hunger on successful catch
                         State = FoxState.Eating;
                         eatTimer = 0f;
 
@@ -154,13 +130,12 @@ namespace Project1
                     eatTimer += dt;
                     if (eatTimer >= EatDuration)
                     {
-                        hungerTimer = 0f; //Reset hunger after eating
+                        ResetHunger(); //Reset hunger after eating
                         State = FoxState.Seeking;
                     }
                     break;
 
                 case FoxState.Idle:
-                    
                     eatTimer += dt;
                     //small idle drifting (so not frozen)
                     Vector2 drift = new Vector2((float)(rng.NextDouble() - 0.5), (float)(rng.NextDouble() - 0.5));
@@ -176,8 +151,7 @@ namespace Project1
             }
 
             //Clamp inside map borders so fox can't go off-screen (uses sprite size)
-            Position.X = MathHelper.Clamp(Position.X, 0f, Math.Max(0, mapPixelWidth - Width));
-            Position.Y = MathHelper.Clamp(Position.Y, 0f, Math.Max(0, mapPixelHeight - Height));
+            ClampToMap(mapPixelWidth, mapPixelHeight);
         }
 
         private Rabbit FindNearestRabbit(List<Rabbit> rabbits)
@@ -204,14 +178,12 @@ namespace Project1
         //Called by Game1 when two foxes successfully breed
         public void MarkBred()
         {
-            HasEaten = false;
-            timeSinceAte = float.MaxValue;
-            BreedingCooldown = BREED_COOLDOWN;
+            MarkBredCommon(FOX_BREED_COOLDOWN);
         }
 
         public bool CanBreed()
         {
-            return HasEaten && BreedingCooldown <= 0f && Alive;
+            return CanBreedCommon();
         }
 
         public void Draw(SpriteBatch spriteBatch)

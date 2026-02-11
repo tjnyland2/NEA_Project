@@ -20,7 +20,7 @@ namespace Project1
     {
         MainMenu,
         Playing,
-        Paused,     
+        Paused,
         Terrain,
         Settings,
         Tutorial,
@@ -463,6 +463,15 @@ namespace Project1
             }
         }
 
+        private (int width, int height) GetEffectiveMapSize()
+        {
+            if (mapGenerator == null)
+                return (GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
+
+            int w = Math.Min(mapGenerator.PixelWidth, GraphicsDevice.Viewport.Width);
+            int h = Math.Min(mapGenerator.PixelHeight, GraphicsDevice.Viewport.Height);
+            return (w, h);
+        }
 
         protected override void Update(GameTime gameTime)
         {
@@ -477,7 +486,7 @@ namespace Project1
                 // Reset spawn flag when returning to menu
                 rabbitsSpawned = false;
             }
-            if (currentGameState == GameState.Playing)//Playing
+            if (currentGameState == GameState.Playing) //Playing
             {
                 //toggle pause on P key (edge detect)
                 if (currentKeyboard.IsKeyDown(Keys.P) && !previousKeyboard.IsKeyDown(Keys.P))
@@ -495,12 +504,15 @@ namespace Project1
                 //Ensure map generator uses currently selected biome
                 mapGenerator?.SetBiome(selectedBiome);
 
+                // compute effective map size clipped to viewport so animals never go past the visible bottom/right
+                var (mapW, mapH) = GetEffectiveMapSize();
+
                 //Spawn rabbits once when entering play mode
                 if (!rabbitsSpawned)
                 {
-                    SpawnRabbits(mapGenerator.PixelWidth, mapGenerator.PixelHeight);
-                    SpawnFoxes(mapGenerator.PixelWidth, mapGenerator.PixelHeight); //Also decided to spawn the foxes here
-                    //clear any old history when starting a new simulation
+                    SpawnRabbits(mapW, mapH);
+                    SpawnFoxes(mapW, mapH); //Also decided to spawn the foxes here
+                                            //clear any old history when starting a new simulation
                     rabbitHistory.Clear();
                     foxHistory.Clear();
                     plantHistory.Clear();
@@ -526,12 +538,12 @@ namespace Project1
                     int margin = 10;
                     int minX = margin;
                     int minY = margin;
-                    int maxXExclusive = Math.Max(minX + 1, mapGenerator.PixelWidth - margin - plantSize + 1);
-                    int maxYExclusive = Math.Max(minY + 1, mapGenerator.PixelHeight - margin - plantSize + 1);
+                    int maxXExclusive = Math.Max(minX + 1, mapW - margin - plantSize + 1);
+                    int maxYExclusive = Math.Max(minY + 1, mapH - margin - plantSize + 1);
 
                     Vector2 position = new Vector2(rng.Next(minX, maxXExclusive), rng.Next(minY, maxYExclusive));
-                    string type = rng.NextDouble() < 0.8 ? "Grass" : "Thorns";//random number between 0 and 1, if less than 0.8 (80%), then pick grass, otherwise choose Thorns 
-                    Texture2D tex = type == "Grass" ? grassTex : thornsTex;//matches that to texture
+                    string type = rng.NextDouble() < 0.8 ? "Grass" : "Thorns";
+                    Texture2D tex = type == "Grass" ? grassTex : thornsTex;
 
                     activePlants.Add(new Plant(position, type, time, tex, plantSize));
                 }
@@ -568,14 +580,14 @@ namespace Project1
 
                 foreach (var fox in activeFoxes)//Foxes update
                 {
-                    fox.Update(gameTime, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
+                    fox.Update(gameTime, activeRabbits, mapW, mapH);
                 }
                 activeFoxes.RemoveAll(r => !r.Alive);//removes the dead foxes
 
                 //Update all rabbits
                 foreach (var rabbit in activeRabbits)
                 {
-                    rabbit.Update(gameTime, activePlants, activeFoxes, activeRabbits, mapGenerator.PixelWidth, mapGenerator.PixelHeight);
+                    rabbit.Update(gameTime, activePlants, activeFoxes, activeRabbits, mapW, mapH);
                 }
 
                 //Release targets for any rabbits that died during update before removing them
@@ -604,39 +616,30 @@ namespace Project1
                             {
                                 // Spawns rabbit in the middle and make sure it is within map bounds
                                 Vector2 spawnPos = (r1.Position + r2.Position) / 2f;
-                                spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapGenerator.PixelWidth - 8));
-                                spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapGenerator.PixelHeight - 8));
+                                spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapW - 8));
+                                spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapH - 8));
 
-                                //Determine mutation for offspring
+                                //Determine mutation for offspring...
                                 bool offspringMutated = false;
                                 if (r1.IsMutated && r2.IsMutated)
                                 {
-                                    offspringMutated = true; // both mutated -> child mutated
+                                    offspringMutated = true;
                                 }
                                 else if (r1.IsMutated ^ r2.IsMutated)
                                 {
-                                    // one mutated, one not -> 50% + mutationChance%
                                     double chance = 0.5 + (mutationChance / 100.0);
                                     if (chance > 1.0) chance = 1.0;
                                     offspringMutated = rng.NextDouble() < chance;
                                 }
                                 else
                                 {
-                                    // both non-mutated -> mutationChance% chance
                                     offspringMutated = rng.NextDouble() < (mutationChance / 100.0);
                                 }
-
-                                int babies = Random.Shared.Next(1, 5);
-                                //for (int r = 0; i < babies; r++) //random amount of offspring between 1 and 4
-                                //{
-                                //newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
-                                // }
 
                                 newBabies.Add(new Rabbit(spawnPos, rabbitTex, offspringMutated));
                                 r1.MarkBred();
                                 r2.MarkBred();
 
-                                //prevent same rabbits breeding again (this cycle)
                                 break;
                             }
                         }
@@ -646,7 +649,7 @@ namespace Project1
                 if (newBabies.Count > 0)
                     activeRabbits.AddRange(newBabies);
 
-                // Fox breeding 
+                // Fox breeding (use mapW/mapH similarly)
                 float foxBreedDistance = 20f;
                 var newFoxes = new List<Fox>();
                 for (int i = 0; i < activeFoxes.Count; i++)
@@ -662,21 +665,22 @@ namespace Project1
                         {
                             if (Vector2.Distance(f1.Position, f2.Position) <= foxBreedDistance)
                             {
-                                // Spawns fox in the middle and make sure it is within map bounds
                                 Vector2 spawnPos = (f1.Position + f2.Position) / 2f;
-                                spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapGenerator.PixelWidth - 8));
-                                spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapGenerator.PixelHeight - 8));
+                                spawnPos.X = MathHelper.Clamp(spawnPos.X, 0f, Math.Max(0, mapW - 8));
+                                spawnPos.Y = MathHelper.Clamp(spawnPos.Y, 0f, Math.Max(0, mapH - 8));
 
                                 newFoxes.Add(new Fox(spawnPos, foxTexture));
                                 f1.MarkBred();
                                 f2.MarkBred();
 
-
-                                break; //stop foxes breeding again 
+                                break;
                             }
                         }
                     }
                 }
+
+                if (newFoxes.Count > 0)
+                    activeFoxes.AddRange(newFoxes);
 
                 if (newFoxes.Count > 0)
                     activeFoxes.AddRange(newFoxes);
@@ -753,7 +757,7 @@ namespace Project1
                     button.Update(currentMouse, previousMouse);
             }
 
-            if (currentGameState == GameState.Playing)
+            if (currentGameState == GameState.Playing) //Doesn't work
             {
                 // Pause toggle 
                 if (currentKeyboard.IsKeyDown(Keys.P) && !previousKeyboard.IsKeyDown(Keys.P))
@@ -1051,9 +1055,9 @@ namespace Project1
                 _spriteBatch.DrawString(font, "Terrain Editor", new Vector2(330, 30), Color.White);
 
                 // Biome descriptions
-                _spriteBatch.DrawString(font, "- Grass\n- Thorns\n- Brown Rabbits Camouflage Best", new Vector2(220, 100), Color.White);
-                _spriteBatch.DrawString(font, "- Moss Clumps\n- Thorns\n- White Rabbits Camouflage Best", new Vector2(220, 200), Color.White);
-                _spriteBatch.DrawString(font, "- Grass\n- Cacti\n- Brown Rabbits Camouflage Best", new Vector2(220, 300), Color.White);
+                _spriteBatch.DrawString(font, "-Grasslands", new Vector2(220, 100), Color.White);
+                _spriteBatch.DrawString(font, "-Tundra", new Vector2(220, 200), Color.White);
+                _spriteBatch.DrawString(font, "-Desert ", new Vector2(220, 300), Color.White);
 
                 // Roughness controls
                 _spriteBatch.DrawString(font, "Terrain Roughness:", new Vector2(540, 80), Color.White);
